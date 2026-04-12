@@ -1,26 +1,14 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect } from '@playwright/test'
+import { clearIndexedDB, completeOnboarding, goToSettings } from './helpers'
 
-async function completeOnboarding(page: Page) {
-  const skipBtn = page.getByText('Skip')
-  if (await skipBtn.first().isVisible({ timeout: 5000 }).catch(() => false)) {
-    await skipBtn.first().click()
-    await page.waitForTimeout(1000)
-  }
-}
-
-test.beforeEach(async ({ context }) => {
-  await context.clearCookies()
-  await context.clearPermissions()
+test.beforeEach(async ({ page }) => {
+  await clearIndexedDB(page)
+  await page.goto('/')
 })
 
 test.describe('Settings', () => {
   test('can navigate to settings and see controls', async ({ page }) => {
-    await page.goto('/')
-    await completeOnboarding(page)
-    await expect(page.getByText('Sheet Music Flashcards')).toBeVisible({ timeout: 15000 })
-    await page.waitForTimeout(2000)
-
-    await page.getByRole('button', { name: 'Settings' }).click({ timeout: 10000 })
+    await goToSettings(page)
 
     await expect(page.getByText('Clefs')).toBeVisible()
     await expect(page.getByText('Accidentals')).toBeVisible()
@@ -37,13 +25,7 @@ test.describe('Settings', () => {
   })
 
   test('enabling bass clef produces bass clef cards in study', { timeout: 120000 }, async ({ page }) => {
-    await page.goto('/')
-    await completeOnboarding(page)
-    await expect(page.getByText('Sheet Music Flashcards')).toBeVisible({ timeout: 15000 })
-    await page.waitForTimeout(2000)
-
-    await page.getByRole('button', { name: 'Settings' }).click({ timeout: 10000 })
-    await expect(page.getByText('Clefs')).toBeVisible()
+    await goToSettings(page)
 
     await page.getByRole('button', { name: 'Bass Clef' }).click()
     await expect(page.getByRole('button', { name: 'Bass Clef' })).toHaveAttribute('aria-pressed', 'true')
@@ -78,12 +60,8 @@ test.describe('Settings', () => {
   })
 
   test('enabling accidentals shows accidental picker buttons', async ({ page }) => {
-    await page.goto('/')
-    await completeOnboarding(page)
-    await expect(page.getByText('Sheet Music Flashcards')).toBeVisible({ timeout: 15000 })
-    await page.waitForTimeout(2000)
+    await goToSettings(page)
 
-    await page.getByRole('button', { name: 'Settings' }).click({ timeout: 10000 })
     await expect(page.getByText('Sharps (♯)')).toBeVisible()
     await page.getByText('Sharps (♯)').click()
 
@@ -95,12 +73,8 @@ test.describe('Settings', () => {
   })
 
   test('changing range preset updates displayed range', async ({ page }) => {
-    await page.goto('/')
-    await completeOnboarding(page)
-    await expect(page.getByText('Sheet Music Flashcards')).toBeVisible({ timeout: 15000 })
-    await page.waitForTimeout(2000)
+    await goToSettings(page)
 
-    await page.getByRole('button', { name: 'Settings' }).click({ timeout: 10000 })
     await expect(page.getByText('E4 – F5')).toBeVisible()
 
     await page.getByRole('button', { name: 'Two Octaves' }).click()
@@ -114,11 +88,8 @@ test.describe('Settings', () => {
   })
 
   test('export data button is visible in settings', async ({ page }) => {
-    await page.goto('/')
-    await completeOnboarding(page)
-    await page.waitForTimeout(2000)
+    await goToSettings(page)
 
-    await page.getByRole('button', { name: 'Settings' }).click({ timeout: 10000 })
     await expect(page.getByRole('button', { name: 'Export Data' })).toBeVisible()
   })
 })

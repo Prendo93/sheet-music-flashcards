@@ -1,22 +1,13 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect } from '@playwright/test'
+import { clearIndexedDB, completeOnboarding } from './helpers'
 
-// Helper: complete onboarding by answering the practice card
-async function completeOnboarding(page: Page) {
-  const skipBtn = page.getByText('Skip')
-  if (await skipBtn.first().isVisible({ timeout: 5000 }).catch(() => false)) {
-    await skipBtn.first().click()
-    await page.waitForTimeout(1000)
-  }
-}
-
-test.beforeEach(async ({ context }) => {
-  await context.clearCookies()
-  await context.clearPermissions()
+test.beforeEach(async ({ page }) => {
+  await clearIndexedDB(page)
+  await page.goto('/')
 })
 
 test.describe('Study Flow', () => {
   test('fresh app shows first card with notation and note picker', async ({ page }) => {
-    await page.goto('/')
     await completeOnboarding(page)
 
     await expect(page.getByRole('button', { name: 'Submit answer' })).toBeVisible({ timeout: 15000 })
@@ -33,9 +24,7 @@ test.describe('Study Flow', () => {
   })
 
   test('skipping a card shows incorrect result feedback', async ({ page }) => {
-    await page.goto('/')
     await completeOnboarding(page)
-    await expect(page.getByRole('button', { name: 'Submit answer' })).toBeVisible({ timeout: 15000 })
 
     await page.getByText("I don't know").click()
 
@@ -45,9 +34,7 @@ test.describe('Study Flow', () => {
   })
 
   test('submitting correct answer via picker shows success', async ({ page }) => {
-    await page.goto('/')
     await completeOnboarding(page)
-    await expect(page.getByRole('button', { name: 'Submit answer' })).toBeVisible({ timeout: 15000 })
 
     const ariaLabel = await page.locator('[role="img"]').first().getAttribute('aria-label')
 
@@ -74,9 +61,7 @@ test.describe('Study Flow', () => {
   })
 
   test('undo restores the card after grading', async ({ page }) => {
-    await page.goto('/')
     await completeOnboarding(page)
-    await expect(page.getByRole('button', { name: 'Submit answer' })).toBeVisible({ timeout: 15000 })
 
     await expect(page.getByText(/Card 1/)).toBeVisible()
     await page.getByText("I don't know").click()
@@ -88,9 +73,7 @@ test.describe('Study Flow', () => {
   })
 
   test('completing cards shows session summary', { timeout: 120000 }, async ({ page }) => {
-    await page.goto('/')
     await completeOnboarding(page)
-    await expect(page.getByRole('button', { name: 'Submit answer' })).toBeVisible({ timeout: 15000 })
 
     for (let i = 0; i < 12; i++) {
       if (await page.getByText('Session Complete').isVisible().catch(() => false)) {

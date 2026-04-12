@@ -1,18 +1,14 @@
-import { test, expect, type Page } from '@playwright/test'
+import { test, expect } from '@playwright/test'
+import { clearIndexedDB, completeOnboarding, goToSettings } from './helpers'
 
-async function completeOnboarding(page: Page) {
-  const skipBtn = page.getByText('Skip')
-  if (await skipBtn.first().isVisible({ timeout: 3000 }).catch(() => false)) {
-    await skipBtn.first().click()
-  }
-  await expect(page.getByRole('button', { name: 'Submit answer' })).toBeVisible({ timeout: 20000 })
-}
+test.beforeEach(async ({ page }) => {
+  await clearIndexedDB(page)
+  await page.goto('/')
+})
 
 test.describe('Key Signatures (v1.2)', () => {
   test('key signature settings section is visible', async ({ page }) => {
-    await page.goto('/')
-    await completeOnboarding(page)
-    await page.getByRole('button', { name: 'Settings' }).click()
+    await goToSettings(page)
 
     await expect(page.getByText('Key Signatures')).toBeVisible()
     await expect(page.getByRole('button', { name: 'G', exact: true })).toBeVisible()
@@ -20,9 +16,7 @@ test.describe('Key Signatures (v1.2)', () => {
   })
 
   test('enabling G major key signature toggles it on', async ({ page }) => {
-    await page.goto('/')
-    await completeOnboarding(page)
-    await page.getByRole('button', { name: 'Settings' }).click()
+    await goToSettings(page)
 
     const gBtn = page.getByRole('button', { name: 'G', exact: true })
     await expect(gBtn).toHaveAttribute('aria-pressed', 'false')
@@ -33,9 +27,7 @@ test.describe('Key Signatures (v1.2)', () => {
 
 test.describe('Dark Mode (v1.2)', () => {
   test('theme toggle buttons appear in settings', async ({ page }) => {
-    await page.goto('/')
-    await completeOnboarding(page)
-    await page.getByRole('button', { name: 'Settings' }).click()
+    await goToSettings(page)
 
     await expect(page.getByText('Theme')).toBeVisible()
     await expect(page.getByRole('button', { name: 'System' })).toBeVisible()
@@ -44,9 +36,7 @@ test.describe('Dark Mode (v1.2)', () => {
   })
 
   test('clicking Dark applies dark theme', async ({ page }) => {
-    await page.goto('/')
-    await completeOnboarding(page)
-    await page.getByRole('button', { name: 'Settings' }).click()
+    await goToSettings(page)
 
     await page.getByRole('button', { name: 'Dark', exact: true }).click()
     await page.waitForTimeout(500)
@@ -56,9 +46,7 @@ test.describe('Dark Mode (v1.2)', () => {
   })
 
   test('clicking Light removes dark theme', async ({ page }) => {
-    await page.goto('/')
-    await completeOnboarding(page)
-    await page.getByRole('button', { name: 'Settings' }).click()
+    await goToSettings(page)
 
     await page.getByRole('button', { name: 'Dark', exact: true }).click()
     await page.waitForTimeout(500)
