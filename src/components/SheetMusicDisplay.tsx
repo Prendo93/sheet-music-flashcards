@@ -1,11 +1,13 @@
 import { useRef, useEffect, useState } from 'preact/hooks'
 import { memo } from 'preact/compat'
 import type { Clef, Accidental } from '../types.ts'
+import { toVexFlowKey, getVexFlowAccidental } from '../lib/music.ts'
 
 interface SheetMusicDisplayProps {
   note: string
   clef: Clef
   accidental?: Accidental
+  notes?: string[]
   keySignature?: string
 }
 
@@ -19,9 +21,12 @@ function loadVexFlow() {
   return vexflowPromise
 }
 
-function SheetMusicDisplayInner({ note, clef, accidental, keySignature }: SheetMusicDisplayProps) {
+function SheetMusicDisplayInner({ note, clef, accidental, notes, keySignature }: SheetMusicDisplayProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
+
+  // Determine if we're rendering multiple notes
+  const isMultiNote = notes && notes.length > 1
 
   useEffect(() => {
     const container = containerRef.current
@@ -52,23 +57,43 @@ function SheetMusicDisplayInner({ note, clef, accidental, keySignature }: SheetM
           }
           stave.setContext(context).draw()
 
-          // Create note — VexFlow format: "c#/5" from "C#5"
-          const vfKey = note.toLowerCase().replace(/(\d)/, '/$1')
-          const staveNote = new StaveNote({
-            clef,
-            keys: [vfKey],
-            duration: 'w',
-          })
+          let staveNote: InstanceType<typeof StaveNote>
 
-          // Add accidental modifier if present and NO key signature is handling it.
-          // When a key signature is set, the key sig at the start of the staff
-          // tells the reader which notes are sharped/flatted — no individual
-          // accidental modifier is rendered on the note.
-          if (!keySignature) {
-            if (accidental === '#') {
-              staveNote.addModifier(new VFAccidental('#'))
-            } else if (accidental === 'b') {
-              staveNote.addModifier(new VFAccidental('b'))
+          if (isMultiNote) {
+            // Multi-note rendering (intervals / chords)
+            const keys = notes.map((n: string) => toVexFlowKey(n))
+            staveNote = new StaveNote({
+              clef,
+              keys,
+              duration: 'w',
+            })
+
+            // Add accidentals for each note that has one
+            notes.forEach((n: string, index: number) => {
+              const acc = getVexFlowAccidental(n)
+              if (acc) {
+                staveNote.addModifier(new VFAccidental(acc), index)
+              }
+            })
+          } else {
+            // Single note rendering (backward compatible)
+            const vfKey = note.toLowerCase().replace(/(\d)/, '/$1')
+            staveNote = new StaveNote({
+              clef,
+              keys: [vfKey],
+              duration: 'w',
+            })
+
+            // Add accidental modifier if present and NO key signature is handling it.
+            // When a key signature is set, the key sig at the start of the staff
+            // tells the reader which notes are sharped/flatted — no individual
+            // accidental modifier is rendered on the note.
+            if (!keySignature) {
+              if (accidental === '#') {
+                staveNote.addModifier(new VFAccidental('#'))
+              } else if (accidental === 'b') {
+                staveNote.addModifier(new VFAccidental('b'))
+              }
             }
           }
 
@@ -102,11 +127,16 @@ function SheetMusicDisplayInner({ note, clef, accidental, keySignature }: SheetM
       cancelled = true
       container.replaceChildren()
     }
-  }, [note, clef, accidental, keySignature])
+  }, [note, clef, accidental, notes, keySignature])
 
   // Build aria-label
-  const accidentalName = accidental === '#' ? ' sharp' : accidental === 'b' ? ' flat' : ''
-  const ariaLabel = `Musical note ${note[0].toUpperCase()}${accidentalName} ${note.replace(/[^0-9]/g, '')} on ${clef} clef`
+  let ariaLabel: string
+  if (isMultiNote) {
+    ariaLabel = `Musical notes ${notes.join(', ')} on ${clef} clef`
+  } else {
+    const accidentalName = accidental === '#' ? ' sharp' : accidental === 'b' ? ' flat' : ''
+    ariaLabel = `Musical note ${note[0].toUpperCase()}${accidentalName} ${note.replace(/[^0-9]/g, '')} on ${clef} clef`
+  }
 
   if (error) {
     return (
