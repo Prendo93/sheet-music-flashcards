@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+@theme {
+  --color-correct: #22c55e;
+  --color-incorrect: #ef4444;
+  --color-slow: #f59e0b;
+  --color-fast: #3b82f6;
+}
+
+html, body, #app {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
