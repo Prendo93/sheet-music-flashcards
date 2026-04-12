@@ -1,4 +1,5 @@
 import type { UserSettings } from '../types.ts'
+import { exportAllData } from '../lib/export.ts'
 
 export interface SettingsPageProps {
   settings: UserSettings
@@ -191,6 +192,18 @@ export function SettingsPage({ settings, onUpdate }: SettingsPageProps) {
             />
           </div>
         </div>
+      </section>
+
+      {/* Data */}
+      <section>
+        <SectionHeading>Data</SectionHeading>
+        <button
+          type="button"
+          onClick={() => exportAllData()}
+          class="min-h-[48px] px-4 py-2 rounded-lg text-sm font-medium border border-gray-300 text-gray-700"
+        >
+          Export Data
+        </button>
       </section>
     </div>
   )

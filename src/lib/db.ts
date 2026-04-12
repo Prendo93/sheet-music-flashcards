@@ -104,6 +104,11 @@ export async function getReviewLogsSince(since: Date): Promise<ReviewLogRecord[]
   return db.getAllFromIndex('reviewLogs', 'reviewed_at', range)
 }
 
+export async function getAllReviewLogs(): Promise<ReviewLogRecord[]> {
+  const db = await getDB()
+  return db.getAll('reviewLogs')
+}
+
 // ---------------------------------------------------------------------------
 // Settings CRUD
 // ---------------------------------------------------------------------------
