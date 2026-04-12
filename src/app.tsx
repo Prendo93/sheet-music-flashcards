@@ -1,40 +1,103 @@
-import { useState } from 'preact/hooks'
-import { SheetMusicDisplay } from './components/SheetMusicDisplay.tsx'
+import { useState, useEffect, useCallback } from 'preact/hooks'
+import { AppShell } from './components/AppShell.tsx'
+import { StudySession } from './components/StudySession.tsx'
+import { SettingsPage } from './components/SettingsPage.tsx'
+import { useSettings } from './hooks/useSettings.ts'
+import { generateCardIds } from './lib/music.ts'
+import { createNewCard } from './lib/scheduler.ts'
+import {
+  getCard,
+  putCard,
+  getCardsDue,
+  getCardsByState,
+  addReviewLog,
+  putCards,
+  requestPersistentStorage,
+} from './lib/db.ts'
+import type { DbApi } from './hooks/useStudySession.ts'
+
+const db: DbApi = {
+  getCard,
+  putCard,
+  getCardsDue,
+  getCardsByState,
+  addReviewLog,
+}
 
 type Tab = 'study' | 'settings'
 
 export function App() {
   const [activeTab, setActiveTab] = useState<Tab>('study')
+  const [sessionActive, setSessionActive] = useState(false)
+  const { settings, updateSettings, loading } = useSettings()
+
+  // Request persistent storage on startup
+  useEffect(() => {
+    requestPersistentStorage()
+  }, [])
+
+  // Generate card pool when settings change
+  useEffect(() => {
+    if (!settings) return
+
+    async function syncCards() {
+      const cardIds = generateCardIds({
+        noteRange: settings!.noteRange,
+        clefs: settings!.clefs,
+        accidentals: settings!.accidentals,
+      })
+
+      // Create new cards for IDs that don't exist yet
+      const newCards = []
+      for (const id of cardIds) {
+        const existing = await getCard(id)
+        if (!existing) {
+          const [clef, note] = id.split(':') as ['treble' | 'bass', string]
+          newCards.push(createNewCard(id, note, clef))
+        }
+      }
+
+      if (newCards.length > 0) {
+        await putCards(newCards)
+      }
+    }
+
+    syncCards()
+  }, [settings?.noteRange.low, settings?.noteRange.high, settings?.clefs.treble, settings?.clefs.bass, settings?.accidentals.sharps, settings?.accidentals.flats])
+
+  const handleSessionActive = useCallback((active: boolean) => {
+    setSessionActive(active)
+  }, [])
+
+  if (loading || !settings) {
+    return (
+      <AppShell activeTab={activeTab} onTabChange={setActiveTab}>
+        <div class="flex items-center justify-center py-12">
+          <p class="text-gray-500">Loading...</p>
+        </div>
+      </AppShell>
+    )
+  }
 
   return (
-    <div class="flex flex-col h-full max-w-[480px] mx-auto">
-      <header class="px-4 py-3 border-b border-gray-200">
-        <h1 class="text-lg font-semibold">Sheet Music Flashcards</h1>
-      </header>
-
-      <main class="flex-1 overflow-y-auto p-4">
-        {activeTab === 'study' && (
-          <div>
-            <SheetMusicDisplay note="C4" clef="treble" />
-          </div>
-        )}
-        {activeTab === 'settings' && <p>Settings (coming soon)</p>}
-      </main>
-
-      <nav class="flex border-t border-gray-200" style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <button
-          class={`flex-1 py-3 text-sm font-medium ${activeTab === 'study' ? 'text-blue-600 border-t-2 border-blue-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('study')}
-        >
-          Study
-        </button>
-        <button
-          class={`flex-1 py-3 text-sm font-medium ${activeTab === 'settings' ? 'text-blue-600 border-t-2 border-blue-600' : 'text-gray-500'}`}
-          onClick={() => setActiveTab('settings')}
-        >
-          Settings
-        </button>
-      </nav>
-    </div>
+    <AppShell
+      activeTab={activeTab}
+      onTabChange={setActiveTab}
+      showNav={!sessionActive}
+    >
+      {activeTab === 'study' && (
+        <StudySession
+          db={db}
+          settings={settings}
+          onSessionActive={handleSessionActive}
+        />
+      )}
+      {activeTab === 'settings' && (
+        <SettingsPage
+          settings={settings}
+          onUpdate={updateSettings}
+        />
+      )}
+    </AppShell>
   )
 }
