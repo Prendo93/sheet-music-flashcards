@@ -1,20 +1,43 @@
 import { describe, it, expect } from 'vitest'
-import type { ReviewLogRecord } from '../../src/types.ts'
-import { startOfDay, computeTodayStats, computeStreak } from '../../src/lib/stats.ts'
+import type { CardRecord, ReviewLogRecord } from '../../src/types.ts'
+import {
+  computeCardDistribution,
+  computeConfusedNotes,
+  computeWeeklyHistory,
+} from '../../src/lib/stats.ts'
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-function makeLog(overrides: Partial<ReviewLogRecord> = {}): ReviewLogRecord {
+function makeCard(overrides: Partial<CardRecord> = {}): CardRecord {
   return {
-    id: `log-${Math.random().toString(36).slice(2, 8)}`,
+    id: 'treble:C4',
+    note: 'C4',
+    clef: 'treble',
+    due: new Date('2025-01-01'),
+    stability: 0,
+    difficulty: 0,
+    elapsed_days: 0,
+    scheduled_days: 0,
+    reps: 0,
+    lapses: 0,
+    state: 0,
+    created_at: new Date('2025-01-01'),
+    schema_version: 1,
+    ...overrides,
+  }
+}
+
+function makeReviewLog(overrides: Partial<ReviewLogRecord> = {}): ReviewLogRecord {
+  return {
+    id: 'log-1',
     cardId: 'treble:C4',
     rating: 3,
     state: 0,
     elapsed_days: 0,
     scheduled_days: 1,
-    reviewed_at: new Date(),
+    reviewed_at: new Date('2025-01-15'),
     response_time_ms: 1500,
     correct: true,
     schema_version: 1,
@@ -22,174 +45,203 @@ function makeLog(overrides: Partial<ReviewLogRecord> = {}): ReviewLogRecord {
   }
 }
 
-/** Create a Date at a specific hour on a given day offset from `base`. */
-function dayAt(base: Date, dayOffset: number, hour = 12): Date {
-  const d = new Date(base)
-  d.setDate(d.getDate() + dayOffset)
-  d.setHours(hour, 0, 0, 0)
-  return d
-}
-
 // ---------------------------------------------------------------------------
-// startOfDay
+// computeCardDistribution
 // ---------------------------------------------------------------------------
 
-describe('startOfDay', () => {
-  it('returns midnight local time for a given date', () => {
-    const input = new Date(2026, 3, 13, 15, 30, 45, 123) // Apr 13, 2026 3:30pm
-    const result = startOfDay(input)
-    expect(result.getFullYear()).toBe(2026)
-    expect(result.getMonth()).toBe(3) // April = month 3
-    expect(result.getDate()).toBe(13)
-    expect(result.getHours()).toBe(0)
-    expect(result.getMinutes()).toBe(0)
-    expect(result.getSeconds()).toBe(0)
-    expect(result.getMilliseconds()).toBe(0)
+describe('computeCardDistribution', () => {
+  it('returns correct counts with mixed states', () => {
+    const cards = [
+      makeCard({ id: 'a', state: 0 }),
+      makeCard({ id: 'b', state: 1 }),
+      makeCard({ id: 'c', state: 2 }),
+      makeCard({ id: 'd', state: 2 }),
+      makeCard({ id: 'e', state: 3 }),
+    ]
+    const dist = computeCardDistribution(cards)
+    expect(dist.new).toBe(1)
+    expect(dist.learning).toBe(1)
+    expect(dist.review).toBe(2)
+    expect(dist.relearning).toBe(1)
+    expect(dist.total).toBe(5)
+    expect(dist.masteryPercent).toBe(40) // 2/5 * 100
   })
 
-  it('does not mutate the input date', () => {
-    const input = new Date(2026, 3, 13, 15, 30, 0, 0)
-    const origTime = input.getTime()
-    startOfDay(input)
-    expect(input.getTime()).toBe(origTime)
+  it('returns mastery 0% with all new cards', () => {
+    const cards = [
+      makeCard({ id: 'a', state: 0 }),
+      makeCard({ id: 'b', state: 0 }),
+      makeCard({ id: 'c', state: 0 }),
+    ]
+    const dist = computeCardDistribution(cards)
+    expect(dist.new).toBe(3)
+    expect(dist.review).toBe(0)
+    expect(dist.masteryPercent).toBe(0)
+  })
+
+  it('returns mastery 100% with all review cards', () => {
+    const cards = [
+      makeCard({ id: 'a', state: 2 }),
+      makeCard({ id: 'b', state: 2 }),
+    ]
+    const dist = computeCardDistribution(cards)
+    expect(dist.review).toBe(2)
+    expect(dist.total).toBe(2)
+    expect(dist.masteryPercent).toBe(100)
+  })
+
+  it('handles empty array', () => {
+    const dist = computeCardDistribution([])
+    expect(dist.new).toBe(0)
+    expect(dist.learning).toBe(0)
+    expect(dist.review).toBe(0)
+    expect(dist.relearning).toBe(0)
+    expect(dist.total).toBe(0)
+    expect(dist.masteryPercent).toBe(0)
   })
 })
 
 // ---------------------------------------------------------------------------
-// computeTodayStats
+// computeConfusedNotes
 // ---------------------------------------------------------------------------
 
-describe('computeTodayStats', () => {
-  const now = new Date(2026, 3, 13, 14, 0, 0, 0) // Apr 13, 2026 2:00pm
-
-  it('returns zeros when there are no logs', () => {
-    const result = computeTodayStats([], now)
-    expect(result).toEqual({
-      reviewedToday: 0,
-      accuracyToday: 0,
-      streak: 0,
-    })
+describe('computeConfusedNotes', () => {
+  it('groups by cardId correctly', () => {
+    const logs = [
+      makeReviewLog({ id: '1', cardId: 'treble:C4', correct: true }),
+      makeReviewLog({ id: '2', cardId: 'treble:C4', correct: false }),
+      makeReviewLog({ id: '3', cardId: 'treble:C4', correct: true }),
+      makeReviewLog({ id: '4', cardId: 'treble:D4', correct: false }),
+      makeReviewLog({ id: '5', cardId: 'treble:D4', correct: false }),
+      makeReviewLog({ id: '6', cardId: 'treble:D4', correct: false }),
+    ]
+    const result = computeConfusedNotes(logs)
+    // D4 has 0% accuracy, C4 has 66.67% accuracy
+    expect(result.length).toBe(2)
+    expect(result[0].cardId).toBe('treble:D4')
+    expect(result[0].accuracy).toBeCloseTo(0)
+    expect(result[1].cardId).toBe('treble:C4')
+    expect(result[1].accuracy).toBeCloseTo(66.67, 0)
   })
 
-  it('counts only logs from today and calculates accuracy', () => {
+  it('sorts by worst accuracy first', () => {
     const logs = [
-      makeLog({ reviewed_at: dayAt(now, 0, 10), correct: true }),
-      makeLog({ reviewed_at: dayAt(now, 0, 11), correct: true }),
-      makeLog({ reviewed_at: dayAt(now, 0, 12), correct: false }),
+      // card A: 3 reviews, 2 correct = 66.7%
+      makeReviewLog({ id: '1', cardId: 'treble:A4', correct: true }),
+      makeReviewLog({ id: '2', cardId: 'treble:A4', correct: true }),
+      makeReviewLog({ id: '3', cardId: 'treble:A4', correct: false }),
+      // card B: 3 reviews, 1 correct = 33.3%
+      makeReviewLog({ id: '4', cardId: 'treble:B4', correct: true }),
+      makeReviewLog({ id: '5', cardId: 'treble:B4', correct: false }),
+      makeReviewLog({ id: '6', cardId: 'treble:B4', correct: false }),
     ]
-    const result = computeTodayStats(logs, now)
-    expect(result.reviewedToday).toBe(3)
-    expect(result.accuracyToday).toBeCloseTo(66.67, 0)
+    const result = computeConfusedNotes(logs)
+    expect(result[0].cardId).toBe('treble:B4')
+    expect(result[1].cardId).toBe('treble:A4')
   })
 
-  it('ignores logs from yesterday', () => {
+  it('filters cards with fewer than 3 reviews', () => {
     const logs = [
-      makeLog({ reviewed_at: dayAt(now, -1, 10), correct: true }),
-      makeLog({ reviewed_at: dayAt(now, -1, 22), correct: false }),
-      makeLog({ reviewed_at: dayAt(now, 0, 9), correct: true }),
+      // card A: only 2 reviews — should be filtered
+      makeReviewLog({ id: '1', cardId: 'treble:A4', correct: false }),
+      makeReviewLog({ id: '2', cardId: 'treble:A4', correct: false }),
+      // card B: 3 reviews — included
+      makeReviewLog({ id: '3', cardId: 'treble:B4', correct: true }),
+      makeReviewLog({ id: '4', cardId: 'treble:B4', correct: false }),
+      makeReviewLog({ id: '5', cardId: 'treble:B4', correct: false }),
     ]
-    const result = computeTodayStats(logs, now)
-    expect(result.reviewedToday).toBe(1)
-    expect(result.accuracyToday).toBe(100)
+    const result = computeConfusedNotes(logs)
+    expect(result.length).toBe(1)
+    expect(result[0].cardId).toBe('treble:B4')
   })
 
-  it('returns 0 accuracy when reviewed but none correct', () => {
-    const logs = [
-      makeLog({ reviewed_at: dayAt(now, 0, 10), correct: false }),
-      makeLog({ reviewed_at: dayAt(now, 0, 11), correct: false }),
-    ]
-    const result = computeTodayStats(logs, now)
-    expect(result.reviewedToday).toBe(2)
-    expect(result.accuracyToday).toBe(0)
+  it('returns top 5 by default', () => {
+    const logs: ReviewLogRecord[] = []
+    // Create 7 cards each with 3 reviews
+    const notes = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4']
+    let logId = 0
+    for (const note of notes) {
+      for (let i = 0; i < 3; i++) {
+        logs.push(
+          makeReviewLog({
+            id: `log-${logId++}`,
+            cardId: `treble:${note}`,
+            correct: false,
+          }),
+        )
+      }
+    }
+    const result = computeConfusedNotes(logs)
+    expect(result.length).toBe(5)
   })
 
-  it('returns 100 accuracy when all correct', () => {
+  it('extracts note name from cardId ("treble:C4" -> "C4")', () => {
     const logs = [
-      makeLog({ reviewed_at: dayAt(now, 0, 8), correct: true }),
-      makeLog({ reviewed_at: dayAt(now, 0, 9), correct: true }),
-      makeLog({ reviewed_at: dayAt(now, 0, 10), correct: true }),
+      makeReviewLog({ id: '1', cardId: 'treble:C4', correct: true }),
+      makeReviewLog({ id: '2', cardId: 'treble:C4', correct: false }),
+      makeReviewLog({ id: '3', cardId: 'treble:C4', correct: false }),
+      makeReviewLog({ id: '4', cardId: 'bass:F3', correct: false }),
+      makeReviewLog({ id: '5', cardId: 'bass:F3', correct: false }),
+      makeReviewLog({ id: '6', cardId: 'bass:F3', correct: false }),
     ]
-    const result = computeTodayStats(logs, now)
-    expect(result.reviewedToday).toBe(3)
-    expect(result.accuracyToday).toBe(100)
+    const result = computeConfusedNotes(logs)
+    expect(result[0].note).toBe('F3')
+    expect(result[1].note).toBe('C4')
   })
 
-  it('includes streak in the result', () => {
-    // Today + yesterday + day before = 3-day streak
-    const logs = [
-      makeLog({ reviewed_at: dayAt(now, 0, 10) }),
-      makeLog({ reviewed_at: dayAt(now, -1, 10) }),
-      makeLog({ reviewed_at: dayAt(now, -2, 10) }),
-    ]
-    const result = computeTodayStats(logs, now)
-    expect(result.streak).toBe(3)
+  it('returns empty array with no logs', () => {
+    const result = computeConfusedNotes([])
+    expect(result).toEqual([])
   })
 })
 
 // ---------------------------------------------------------------------------
-// computeStreak
+// computeWeeklyHistory
 // ---------------------------------------------------------------------------
 
-describe('computeStreak', () => {
-  const now = new Date(2026, 3, 13, 14, 0, 0, 0) // Apr 13, 2026 2:00pm
-
-  it('returns 0 with no logs', () => {
-    expect(computeStreak([], now)).toBe(0)
+describe('computeWeeklyHistory', () => {
+  it('returns exactly 7 entries', () => {
+    const result = computeWeeklyHistory([], new Date('2026-04-13'))
+    expect(result.length).toBe(7)
   })
 
-  it('returns 1 with reviews today only', () => {
-    const logs = [makeLog({ reviewed_at: dayAt(now, 0, 10) })]
-    expect(computeStreak(logs, now)).toBe(1)
+  it('includes today', () => {
+    const now = new Date('2026-04-13T14:00:00')
+    const result = computeWeeklyHistory([], now)
+    expect(result[6].date).toBe('2026-04-13')
   })
 
-  it('counts consecutive days correctly (3 days)', () => {
+  it('fills missing days with zeros', () => {
+    const now = new Date('2026-04-13T14:00:00')
+    const result = computeWeeklyHistory([], now)
+    for (const entry of result) {
+      expect(entry.reviewCount).toBe(0)
+      expect(entry.correctCount).toBe(0)
+    }
+  })
+
+  it('counts correctly for a day with multiple reviews', () => {
+    const now = new Date('2026-04-13T20:00:00')
     const logs = [
-      makeLog({ reviewed_at: dayAt(now, 0, 10) }),
-      makeLog({ reviewed_at: dayAt(now, -1, 15) }),
-      makeLog({ reviewed_at: dayAt(now, -2, 9) }),
+      makeReviewLog({ id: '1', reviewed_at: new Date('2026-04-13T10:00:00'), correct: true }),
+      makeReviewLog({ id: '2', reviewed_at: new Date('2026-04-13T11:00:00'), correct: true }),
+      makeReviewLog({ id: '3', reviewed_at: new Date('2026-04-13T12:00:00'), correct: false }),
     ]
-    expect(computeStreak(logs, now)).toBe(3)
+    const result = computeWeeklyHistory(logs, now)
+    const today = result[6]
+    expect(today.date).toBe('2026-04-13')
+    expect(today.reviewCount).toBe(3)
+    expect(today.correctCount).toBe(2)
   })
 
-  it('breaks streak at a gap', () => {
-    // today, yesterday, gap, 3 days ago
-    const logs = [
-      makeLog({ reviewed_at: dayAt(now, 0, 10) }),
-      makeLog({ reviewed_at: dayAt(now, -1, 10) }),
-      // no log for dayAt(now, -2)
-      makeLog({ reviewed_at: dayAt(now, -3, 10) }),
-    ]
-    expect(computeStreak(logs, now)).toBe(2)
-  })
-
-  it('counts from yesterday when today has no reviews (streak not broken yet)', () => {
-    const logs = [
-      makeLog({ reviewed_at: dayAt(now, -1, 10) }),
-      makeLog({ reviewed_at: dayAt(now, -2, 10) }),
-      makeLog({ reviewed_at: dayAt(now, -3, 10) }),
-    ]
-    expect(computeStreak(logs, now)).toBe(3)
-  })
-
-  it('boundary: review at 11:59pm and 12:01am same day counts as 1', () => {
-    const late = new Date(2026, 3, 12, 23, 59, 0, 0) // Apr 12 11:59pm
-    const early = new Date(2026, 3, 12, 0, 1, 0, 0)  // Apr 12 12:01am
-    const logs = [
-      makeLog({ reviewed_at: late }),
-      makeLog({ reviewed_at: early }),
-    ]
-    // now is Apr 13; these are both Apr 12 = yesterday, so streak from yesterday = 1
-    expect(computeStreak(logs, now)).toBe(1)
-  })
-
-  it('handles multiple reviews on the same day correctly', () => {
-    const logs = [
-      makeLog({ reviewed_at: dayAt(now, 0, 8) }),
-      makeLog({ reviewed_at: dayAt(now, 0, 12) }),
-      makeLog({ reviewed_at: dayAt(now, 0, 18) }),
-      makeLog({ reviewed_at: dayAt(now, -1, 10) }),
-      makeLog({ reviewed_at: dayAt(now, -1, 14) }),
-    ]
-    expect(computeStreak(logs, now)).toBe(2)
+  it('is sorted chronologically (oldest first)', () => {
+    const now = new Date('2026-04-13T14:00:00')
+    const result = computeWeeklyHistory([], now)
+    expect(result[0].date).toBe('2026-04-07')
+    expect(result[6].date).toBe('2026-04-13')
+    // Verify all dates are in order
+    for (let i = 1; i < result.length; i++) {
+      expect(result[i].date > result[i - 1].date).toBe(true)
+    }
   })
 })

@@ -98,6 +98,11 @@ export async function getReviewLogsByCard(cardId: string): Promise<ReviewLogReco
   return db.getAllFromIndex('reviewLogs', 'cardId', cardId)
 }
 
+export async function getAllReviewLogs(): Promise<ReviewLogRecord[]> {
+  const db = await getDB()
+  return db.getAll('reviewLogs')
+}
+
 export async function getReviewLogsSince(since: Date): Promise<ReviewLogRecord[]> {
   const db = await getDB()
   const range = IDBKeyRange.lowerBound(since)
