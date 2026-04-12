@@ -2,9 +2,13 @@ import { useState, useEffect } from 'preact/hooks'
 import { AppShell } from './components/AppShell.tsx'
 import { StudySession } from './components/StudySession.tsx'
 import { SettingsPage } from './components/SettingsPage.tsx'
+import { TodayStats } from './components/TodayStats.tsx'
+import { Onboarding } from './components/Onboarding.tsx'
 import { useSettings } from './hooks/useSettings.ts'
 import { generateCardIds } from './lib/music.ts'
 import { createNewCard } from './lib/scheduler.ts'
+import { computeTodayStats } from './lib/stats.ts'
+import { ensureAudioContext } from './lib/synth.ts'
 import {
   getCard,
   putCard,
@@ -12,9 +16,11 @@ import {
   getCardsByState,
   addReviewLog,
   putCards,
+  getAllReviewLogs,
   requestPersistentStorage,
 } from './lib/db.ts'
 import type { DbApi } from './hooks/useStudySession.ts'
+import type { TodayStatsResult } from './lib/stats.ts'
 
 const db: DbApi = {
   getCard,
@@ -29,8 +35,8 @@ type Tab = 'study' | 'settings'
 export function App() {
   const [activeTab, setActiveTab] = useState<Tab>('study')
   const [cardsReady, setCardsReady] = useState(false)
-  // Incremented when settings change to force StudySession re-mount
   const [sessionKey, setSessionKey] = useState(0)
+  const [todayStats, setTodayStats] = useState<TodayStatsResult | null>(null)
   const { settings, updateSettings, loading } = useSettings()
 
   // Request persistent storage on startup
@@ -38,7 +44,26 @@ export function App() {
     requestPersistentStorage()
   }, [])
 
-  // Generate card pool when settings change — block rendering until done
+  // Load today stats on mount and after each session key change
+  useEffect(() => {
+    async function loadStats() {
+      const logs = await getAllReviewLogs()
+      setTodayStats(computeTodayStats(logs))
+    }
+    loadStats()
+  }, [sessionKey])
+
+  // Ensure audio context on first user interaction
+  useEffect(() => {
+    function handleFirstInteraction() {
+      try { ensureAudioContext() } catch { /* silent */ }
+      document.removeEventListener('click', handleFirstInteraction)
+    }
+    document.addEventListener('click', handleFirstInteraction)
+    return () => document.removeEventListener('click', handleFirstInteraction)
+  }, [])
+
+  // Generate card pool when settings change
   useEffect(() => {
     if (!settings) return
 
@@ -51,7 +76,6 @@ export function App() {
         accidentals: settings!.accidentals,
       })
 
-      // Create new cards for IDs that don't exist yet
       const newCards = []
       for (const id of cardIds) {
         const existing = await getCard(id)
@@ -74,10 +98,15 @@ export function App() {
     setCardsReady(false)
     syncCards()
 
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [settings?.noteRange.low, settings?.noteRange.high, settings?.clefs.treble, settings?.clefs.bass, settings?.accidentals.sharps, settings?.accidentals.flats])
+
+  // Handle onboarding completion
+  async function handleOnboardingComplete() {
+    if (settings) {
+      await updateSettings({ hasSeenOnboarding: true })
+    }
+  }
 
   if (loading || !settings) {
     return (
@@ -89,6 +118,11 @@ export function App() {
     )
   }
 
+  // Show onboarding for new users
+  if (!settings.hasSeenOnboarding) {
+    return <Onboarding onComplete={handleOnboardingComplete} />
+  }
+
   return (
     <AppShell
       activeTab={activeTab}
@@ -96,17 +130,26 @@ export function App() {
       showNav={true}
     >
       {activeTab === 'study' && (
-        cardsReady ? (
-          <StudySession
-            key={sessionKey}
-            db={db}
-            settings={settings}
-          />
-        ) : (
-          <div class="flex items-center justify-center py-12">
-            <p class="text-gray-500">Preparing cards...</p>
-          </div>
-        )
+        <div class="flex flex-col gap-4">
+          {todayStats && (
+            <TodayStats
+              reviewedToday={todayStats.reviewedToday}
+              accuracyToday={todayStats.accuracyToday}
+              streak={todayStats.streak}
+            />
+          )}
+          {cardsReady ? (
+            <StudySession
+              key={sessionKey}
+              db={db}
+              settings={settings}
+            />
+          ) : (
+            <div class="flex items-center justify-center py-12">
+              <p class="text-gray-500">Preparing cards...</p>
+            </div>
+          )}
+        </div>
       )}
       {activeTab === 'settings' && (
         <SettingsPage

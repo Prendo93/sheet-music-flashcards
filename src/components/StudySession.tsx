@@ -7,7 +7,8 @@ import { NotePicker } from './NotePicker.tsx'
 import { ResultFeedback } from './ResultFeedback.tsx'
 import { SessionSummary } from './SessionSummary.tsx'
 import { PianoKeyboard } from './PianoKeyboard.tsx'
-import { parseNote } from '../lib/music.ts'
+import { parseNote, noteToMidi } from '../lib/music.ts'
+import { playNote } from '../lib/synth.ts'
 
 interface StudySessionProps {
   db: DbApi
@@ -31,15 +32,16 @@ export function StudySession({ db, settings, onSessionActive }: StudySessionProp
     onSessionActive?.(active)
   }, [state.phase, onSessionActive])
 
-  // Auto-advance after reveal
+  // Play audio + auto-advance after reveal
   useEffect(() => {
-    if (state.phase === 'revealing') {
+    if (state.phase === 'revealing' && state.currentCard) {
+      try { playNote(noteToMidi(state.currentCard.note)) } catch { /* silent */ }
       const timer = setTimeout(() => {
         nextCard()
       }, 2000)
       return () => clearTimeout(timer)
     }
-  }, [state.phase, nextCard])
+  }, [state.phase, nextCard, state.currentCard])
 
   // Compute octave range from settings
   const lowOctave = parseNote(settings.noteRange.low).octave
