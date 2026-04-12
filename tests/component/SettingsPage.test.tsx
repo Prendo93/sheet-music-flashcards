@@ -230,4 +230,48 @@ describe('SettingsPage', () => {
     fireEvent.change(input, { target: { value: '0' } })
     expect(onUpdate).toHaveBeenCalledWith({ newCardsPerDay: 1 })
   })
+
+  // ── Input Mode toggle ─────────────────────────────────────
+
+  it('renders input mode toggle with correct initial state (picker)', () => {
+    const settings = makeSettings({ inputMode: 'picker' })
+    render(<SettingsPage settings={settings} onUpdate={vi.fn()} />)
+
+    const pickerBtn = screen.getByRole('button', { name: /note picker/i })
+    const pianoBtn = screen.getByRole('button', { name: /piano keyboard/i })
+
+    expect(pickerBtn).toHaveAttribute('aria-pressed', 'true')
+    expect(pianoBtn).toHaveAttribute('aria-pressed', 'false')
+  })
+
+  it('renders input mode toggle with correct initial state (piano)', () => {
+    const settings = makeSettings({ inputMode: 'piano' })
+    render(<SettingsPage settings={settings} onUpdate={vi.fn()} />)
+
+    const pickerBtn = screen.getByRole('button', { name: /note picker/i })
+    const pianoBtn = screen.getByRole('button', { name: /piano keyboard/i })
+
+    expect(pickerBtn).toHaveAttribute('aria-pressed', 'false')
+    expect(pianoBtn).toHaveAttribute('aria-pressed', 'true')
+  })
+
+  it('selecting piano keyboard calls onUpdate with inputMode piano', () => {
+    const onUpdate = vi.fn()
+    const settings = makeSettings({ inputMode: 'picker' })
+    render(<SettingsPage settings={settings} onUpdate={onUpdate} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /piano keyboard/i }))
+
+    expect(onUpdate).toHaveBeenCalledWith({ inputMode: 'piano' })
+  })
+
+  it('selecting note picker calls onUpdate with inputMode picker', () => {
+    const onUpdate = vi.fn()
+    const settings = makeSettings({ inputMode: 'piano' })
+    render(<SettingsPage settings={settings} onUpdate={onUpdate} />)
+
+    fireEvent.click(screen.getByRole('button', { name: /note picker/i }))
+
+    expect(onUpdate).toHaveBeenCalledWith({ inputMode: 'picker' })
+  })
 })

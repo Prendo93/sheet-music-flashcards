@@ -1,135 +1,138 @@
-import { noteToMidi } from '../lib/music.ts'
+import { noteToMidi, midiToNoteName } from '../lib/music.ts'
 
 interface PianoKeyboardProps {
-  highlightNote: string
+  highlightNote?: string
   lowNote: string
   highNote: string
+  onKeyTap?: (note: string) => void
+  disabled?: boolean
 }
 
-// Which semitones within an octave are white keys (C=0, D=2, E=4, F=5, G=7, A=9, B=11)
-const WHITE_SEMITONES = new Set([0, 2, 4, 5, 7, 9, 11])
+/**
+ * Map of semitone-within-octave to whether it's a black key.
+ * 0=C, 1=C#, 2=D, 3=D#, 4=E, 5=F, 6=F#, 7=G, 8=G#, 9=A, 10=A#, 11=B
+ */
+const BLACK_KEY_SEMITONES = new Set([1, 3, 6, 8, 10])
 
-// Sharp names for black keys
-const SHARP_NAMES: Record<number, string> = {
-  1: 'C#', 3: 'D#', 6: 'F#', 8: 'G#', 10: 'A#',
-}
-// White key letter names
-const WHITE_NAMES: Record<number, string> = {
-  0: 'C', 2: 'D', 4: 'E', 5: 'F', 7: 'G', 9: 'A', 11: 'B',
+function isBlackKey(midi: number): boolean {
+  return BLACK_KEY_SEMITONES.has(((midi % 12) + 12) % 12)
 }
 
-interface KeyInfo {
-  midi: number
-  note: string      // e.g. "C4", "F#4"
-  isBlack: boolean
-  semitone: number   // 0-11
-  octave: number
+/**
+ * Build a human-readable aria-label for a note.
+ * E.g., "C4" -> "Play C4", "C#4" -> "Play C sharp 4"
+ */
+function ariaLabelForNote(noteName: string): string {
+  return `Play ${noteName.replace('#', ' sharp ')}`
 }
 
-function buildKeys(lowMidi: number, highMidi: number): KeyInfo[] {
-  const keys: KeyInfo[] = []
-  for (let midi = lowMidi; midi <= highMidi; midi++) {
-    const semitone = ((midi % 12) + 12) % 12
-    const octave = Math.floor(midi / 12) - 1
-    const isBlack = !WHITE_SEMITONES.has(semitone)
-    const name = isBlack ? SHARP_NAMES[semitone] : WHITE_NAMES[semitone]
-    keys.push({
-      midi,
-      note: `${name}${octave}`,
-      isBlack,
-      semitone,
-      octave,
-    })
-  }
-  return keys
-}
-
-function isHighlighted(keyInfo: KeyInfo, highlightMidi: number): boolean {
-  return keyInfo.midi === highlightMidi
-}
-
-export function PianoKeyboard({ highlightNote, lowNote, highNote }: PianoKeyboardProps) {
+export function PianoKeyboard({
+  highlightNote,
+  lowNote,
+  highNote,
+  onKeyTap,
+  disabled = false,
+}: PianoKeyboardProps) {
   const lowMidi = noteToMidi(lowNote)
   const highMidi = noteToMidi(highNote)
-  const highlightMidi = noteToMidi(highlightNote)
-  const allKeys = buildKeys(lowMidi, highMidi)
 
-  const whiteKeys = allKeys.filter((k) => !k.isBlack)
-  const blackKeys = allKeys.filter((k) => k.isBlack)
+  // Build list of all MIDI notes in range
+  const keys: Array<{ midi: number; noteName: string; isBlack: boolean }> = []
+  for (let midi = lowMidi; midi <= highMidi; midi++) {
+    const noteName = midiToNoteName(midi, true) // always use sharp names
+    keys.push({ midi, noteName, isBlack: isBlackKey(midi) })
+  }
 
-  const whiteKeyWidth = 100 / whiteKeys.length
-  // Map each white key to its x position index
-  const whitePositions = new Map<number, number>()
+  const whiteKeys = keys.filter((k) => !k.isBlack)
+  const blackKeys = keys.filter((k) => k.isBlack)
+
+  const isInteractive = !!onKeyTap
+
+  function handleClick(noteName: string) {
+    if (!onKeyTap || disabled) return
+    onKeyTap(noteName)
+  }
+
+  // Calculate positions for black keys relative to white keys
+  // Each white key has a fixed width. Black keys are positioned between specific white keys.
+  const whiteKeyCount = whiteKeys.length
+  // White key width as percentage
+  const whiteKeyWidthPct = whiteKeyCount > 0 ? 100 / whiteKeyCount : 0
+
+  // Map MIDI -> index in whiteKeys for positioning
+  const whiteKeyIndex = new Map<number, number>()
   whiteKeys.forEach((k, i) => {
-    whitePositions.set(k.midi, i)
+    whiteKeyIndex.set(k.midi, i)
   })
 
-  // Black key positioning: placed between white keys
-  // A black key at semitone S is between the white key to its left and right
-  function getBlackKeyX(blackKey: KeyInfo): number {
-    // Find the white key just below this black key
-    const lowerWhiteMidi = blackKey.midi - 1
-    const lowerIdx = whitePositions.get(lowerWhiteMidi)
-    if (lowerIdx === undefined) {
-      // Edge case: black key at the very start
-      return 0
+  /**
+   * For a black key (e.g., C#4 = midi 61), the white key to its left
+   * is the one with midi - 1 (C4 = midi 60). Position the black key
+   * centered between that white key and the next.
+   */
+  function blackKeyLeftPct(midi: number): number {
+    const leftWhiteMidi = midi - 1
+    const idx = whiteKeyIndex.get(leftWhiteMidi)
+    if (idx === undefined) {
+      // Edge case: the white key to the left is outside our range
+      // Position relative to the start
+      return -whiteKeyWidthPct * 0.3
     }
-    // Position the black key straddling the boundary between lower and upper white keys
-    return (lowerIdx + 0.65) * whiteKeyWidth
+    return (idx + 1) * whiteKeyWidthPct - whiteKeyWidthPct * 0.3
   }
 
-  // Determine data-note attribute: use highlight note's spelling for the highlighted key
-  function getDataNote(keyInfo: KeyInfo): string {
-    if (keyInfo.midi === highlightMidi) {
-      return highlightNote
-    }
-    return keyInfo.note
-  }
+  const highlightClass = 'bg-blue-400'
+  const whiteBaseClass = 'bg-white border border-gray-300'
+  const blackBaseClass = 'bg-gray-900'
 
   return (
     <div
-      role="img"
-      aria-label={`Piano keyboard highlighting ${highlightNote}`}
-      class="relative w-full max-w-[400px] mx-auto select-none"
-      style={{ height: '80px' }}
+      class="relative select-none"
+      style={{ height: '120px' }}
+      role="group"
+      aria-label="Piano keyboard"
     >
       {/* White keys */}
-      {whiteKeys.map((key, i) => {
-        const highlighted = isHighlighted(key, highlightMidi)
-        return (
-          <div
-            key={key.midi}
-            data-note={getDataNote(key)}
-            data-key-type="white"
-            class={`absolute top-0 bottom-0 border border-gray-300 rounded-b ${
-              highlighted ? 'bg-blue-400' : 'bg-white'
-            }`}
-            style={{
-              left: `${i * whiteKeyWidth}%`,
-              width: `${whiteKeyWidth}%`,
-            }}
-          />
-        )
-      })}
+      <div class="flex h-full">
+        {whiteKeys.map((key) => {
+          const isHighlighted = highlightNote === key.noteName
+          const baseClass = isHighlighted ? highlightClass : whiteBaseClass
+          const interactiveClass = isInteractive ? 'cursor-pointer hover:bg-gray-100' : ''
+          const disabledClass = disabled ? 'opacity-50' : ''
+
+          return (
+            <div
+              key={key.midi}
+              role="button"
+              aria-label={ariaLabelForNote(key.noteName)}
+              class={`flex-1 h-full rounded-b ${baseClass} ${interactiveClass} ${disabledClass} flex items-end justify-center pb-1 text-xs text-gray-500`}
+              onClick={() => handleClick(key.noteName)}
+            />
+          )
+        })}
+      </div>
 
       {/* Black keys */}
       {blackKeys.map((key) => {
-        const highlighted = isHighlighted(key, highlightMidi)
-        const x = getBlackKeyX(key)
-        const blackWidth = whiteKeyWidth * 0.6
+        const leftPct = blackKeyLeftPct(key.midi)
+        const isHighlighted = highlightNote === key.noteName
+        const baseClass = isHighlighted ? highlightClass : blackBaseClass
+        const interactiveClass = isInteractive ? 'cursor-pointer hover:bg-gray-700' : ''
+        const disabledClass = disabled ? 'opacity-50' : ''
+
         return (
           <div
             key={key.midi}
-            data-note={getDataNote(key)}
-            data-key-type="black"
-            class={`absolute top-0 rounded-b z-10 ${
-              highlighted ? 'bg-blue-600' : 'bg-gray-800'
-            }`}
+            role="button"
+            aria-label={ariaLabelForNote(key.noteName)}
+            class={`absolute top-0 rounded-b ${baseClass} ${interactiveClass} ${disabledClass}`}
             style={{
-              left: `${x}%`,
-              width: `${blackWidth}%`,
-              height: '55%',
+              left: `${leftPct}%`,
+              width: `${whiteKeyWidthPct * 0.6}%`,
+              height: '60%',
+              zIndex: 1,
             }}
+            onClick={() => handleClick(key.noteName)}
           />
         )
       })}

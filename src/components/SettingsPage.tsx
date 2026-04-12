@@ -48,7 +48,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 export function SettingsPage({ settings, onUpdate }: SettingsPageProps) {
-  const { clefs, accidentals, keySignatures, noteRange, sessionSize, newCardsPerDay, theme } = settings
+  const { clefs, accidentals, keySignatures, noteRange, sessionSize, newCardsPerDay, theme, inputMode } = settings
 
   const bothClefsOn = clefs.treble && clefs.bass
 
@@ -249,6 +249,23 @@ export function SettingsPage({ settings, onUpdate }: SettingsPageProps) {
               class="min-h-[48px] w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-base"
             />
           </div>
+        </div>
+      </section>
+
+      {/* Input Mode */}
+      <section>
+        <SectionHeading>Input Mode</SectionHeading>
+        <div class="flex gap-3">
+          <ToggleButton
+            label="Note Picker"
+            pressed={inputMode === 'picker'}
+            onClick={() => onUpdate({ inputMode: 'picker' })}
+          />
+          <ToggleButton
+            label="Piano Keyboard"
+            pressed={inputMode === 'piano'}
+            onClick={() => onUpdate({ inputMode: 'piano' })}
+          />
         </div>
       </section>
 
