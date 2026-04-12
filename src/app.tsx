@@ -7,7 +7,7 @@ import { Onboarding } from './components/Onboarding.tsx'
 import { useSettings } from './hooks/useSettings.ts'
 import { generateCardIds } from './lib/music.ts'
 import { createNewCard } from './lib/scheduler.ts'
-import { computeTodayStats } from './lib/stats.ts'
+import { computeTodayStats, computeStreak } from './lib/stats.ts'
 import { ensureAudioContext } from './lib/synth.ts'
 import {
   getCard,
@@ -20,7 +20,7 @@ import {
   requestPersistentStorage,
 } from './lib/db.ts'
 import type { DbApi } from './hooks/useStudySession.ts'
-import type { TodayStatsResult } from './lib/stats.ts'
+import type { TodayStats as TodayStatsType } from './lib/stats.ts'
 
 const db: DbApi = {
   getCard,
@@ -36,7 +36,7 @@ export function App() {
   const [activeTab, setActiveTab] = useState<Tab>('study')
   const [cardsReady, setCardsReady] = useState(false)
   const [sessionKey, setSessionKey] = useState(0)
-  const [todayStats, setTodayStats] = useState<TodayStatsResult | null>(null)
+  const [todayStats, setTodayStats] = useState<TodayStatsType | null>(null)
   const { settings, updateSettings, loading } = useSettings()
 
   // Request persistent storage on startup
@@ -48,7 +48,9 @@ export function App() {
   useEffect(() => {
     async function loadStats() {
       const logs = await getAllReviewLogs()
-      setTodayStats(computeTodayStats(logs))
+      const { reviewedToday, accuracyToday } = computeTodayStats(logs)
+      const streak = computeStreak(logs)
+      setTodayStats({ reviewedToday, accuracyToday, streak })
     }
     loadStats()
   }, [sessionKey])
@@ -62,6 +64,26 @@ export function App() {
     document.addEventListener('click', handleFirstInteraction)
     return () => document.removeEventListener('click', handleFirstInteraction)
   }, [])
+
+  // Theme management: apply 'dark' class to <html> based on settings.theme
+  useEffect(() => {
+    const root = document.documentElement
+    if (!settings) return
+
+    function applyTheme() {
+      if (settings!.theme === 'dark' ||
+          (settings!.theme === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        root.classList.add('dark')
+      } else {
+        root.classList.remove('dark')
+      }
+    }
+
+    applyTheme()
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    mq.addEventListener('change', applyTheme)
+    return () => mq.removeEventListener('change', applyTheme)
+  }, [settings?.theme])
 
   // Generate card pool when settings change
   useEffect(() => {

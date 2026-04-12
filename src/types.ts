@@ -65,6 +65,7 @@ export interface UserSettings {
     /** Correct under this ms → Good (rating 3); above → Hard (rating 2) */
     goodMs: number
   }
+  theme: 'system' | 'light' | 'dark'
   hasSeenOnboarding: boolean
   autoProgression: boolean
   progressionLevel: number
@@ -82,6 +83,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   newCardsPerDay: 10,
   sessionSize: 20,
   autoGradeThresholds: { easyMs: 2000, goodMs: 5000 },
+  theme: 'system',
   hasSeenOnboarding: false,
   autoProgression: true,
   progressionLevel: 0,

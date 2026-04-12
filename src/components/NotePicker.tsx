@@ -59,7 +59,7 @@ export function NotePicker({ onSubmit, showAccidentals, octaveRange, disabled = 
             class={`flex-1 min-h-[48px] rounded font-semibold text-lg ${
               selectedLetter === letter
                 ? 'bg-blue-500 text-white'
-                : 'bg-gray-100'
+                : 'bg-gray-100 dark:bg-gray-700 dark:text-gray-100'
             }`}
             onClick={() => setSelectedLetter(letter)}
           >
@@ -81,7 +81,7 @@ export function NotePicker({ onSubmit, showAccidentals, octaveRange, disabled = 
               class={`min-w-[48px] min-h-[48px] rounded font-semibold text-lg ${
                 selectedAccidental === acc.value
                   ? 'bg-blue-500 text-white'
-                  : 'bg-gray-100'
+                  : 'bg-gray-100 dark:bg-gray-700 dark:text-gray-100'
               }`}
               onClick={() => setSelectedAccidental(acc.value)}
             >
@@ -104,7 +104,7 @@ export function NotePicker({ onSubmit, showAccidentals, octaveRange, disabled = 
               class={`min-w-[48px] min-h-[48px] rounded font-semibold text-lg ${
                 selectedOctave === oct
                   ? 'bg-blue-500 text-white'
-                  : 'bg-gray-100'
+                  : 'bg-gray-100 dark:bg-gray-700 dark:text-gray-100'
               }`}
               onClick={() => setSelectedOctave(oct)}
             >
@@ -122,7 +122,7 @@ export function NotePicker({ onSubmit, showAccidentals, octaveRange, disabled = 
         class={`w-full min-h-[48px] rounded font-semibold text-lg text-white ${
           canSubmit && !disabled
             ? 'bg-green-500'
-            : 'bg-gray-300'
+            : 'bg-gray-300 dark:bg-gray-600'
         }`}
         onClick={handleSubmit}
       >

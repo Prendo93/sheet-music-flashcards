@@ -49,22 +49,22 @@ export function ResultFeedback({
 
   const bgClass = correct
     ? rating === 2
-      ? 'bg-amber-50 border-amber-200'
-      : 'bg-green-50 border-green-200'
-    : 'bg-red-50 border-red-200'
+      ? 'bg-amber-50 dark:bg-amber-900/30 border-amber-200 dark:border-amber-700'
+      : 'bg-green-50 dark:bg-green-900/30 border-green-200 dark:border-green-700'
+    : 'bg-red-50 dark:bg-red-900/30 border-red-200 dark:border-red-700'
 
   return (
     <div class={`rounded-lg border p-4 ${bgClass}`} role="status">
       <p class={`text-lg font-semibold ${colorClass}`}>
         {RATING_LABELS[rating]}
       </p>
-      <p class="mt-1 text-sm text-gray-700">
+      <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">
         Correct answer: <span class="font-medium">{correctAnswer}</span>
       </p>
       {showUndo && (
         <button
           type="button"
-          class="mt-3 rounded bg-gray-200 px-3 py-1 text-sm font-medium text-gray-700 hover:bg-gray-300"
+          class="mt-3 rounded bg-gray-200 dark:bg-gray-700 px-3 py-1 text-sm font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600"
           onClick={onUndo}
         >
           Undo

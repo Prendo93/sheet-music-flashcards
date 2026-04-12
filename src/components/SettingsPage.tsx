@@ -8,7 +8,7 @@ export interface SettingsPageProps {
 
 function SectionHeading({ children }: { children: string }) {
   return (
-    <h2 class="text-sm font-medium text-gray-500 uppercase tracking-wide mb-3">
+    <h2 class="text-sm font-medium text-gray-500 dark:text-gray-400 uppercase tracking-wide mb-3">
       {children}
     </h2>
   )
@@ -35,7 +35,7 @@ function ToggleButton({
       class={`min-h-[48px] px-4 py-2 rounded-full text-sm font-medium transition-colors ${
         pressed
           ? 'bg-blue-600 text-white'
-          : 'bg-gray-200 text-gray-700'
+          : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200'
       } ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
     >
       {label}
@@ -48,7 +48,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 export function SettingsPage({ settings, onUpdate }: SettingsPageProps) {
-  const { clefs, accidentals, keySignatures, noteRange, sessionSize, newCardsPerDay } = settings
+  const { clefs, accidentals, keySignatures, noteRange, sessionSize, newCardsPerDay, theme } = settings
 
   const bothClefsOn = clefs.treble && clefs.bass
 
@@ -155,7 +155,7 @@ export function SettingsPage({ settings, onUpdate }: SettingsPageProps) {
       {/* Note Range */}
       <section>
         <SectionHeading>Note Range</SectionHeading>
-        <p class="text-lg font-semibold mb-3">
+        <p class="text-lg font-semibold mb-3 dark:text-gray-100">
           {noteRange.low} – {noteRange.high}
         </p>
         <div class="flex gap-3 flex-wrap">
@@ -164,8 +164,8 @@ export function SettingsPage({ settings, onUpdate }: SettingsPageProps) {
             onClick={() => handleRangePreset('E4', 'F5')}
             class={`min-h-[48px] px-4 py-2 rounded-lg text-sm font-medium border ${
               noteRange.low === 'E4' && noteRange.high === 'F5'
-                ? 'border-blue-600 bg-blue-50 text-blue-700'
-                : 'border-gray-300 text-gray-700'
+                ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200'
             }`}
           >
             One Octave
@@ -175,8 +175,8 @@ export function SettingsPage({ settings, onUpdate }: SettingsPageProps) {
             onClick={() => handleRangePreset('C3', 'C5')}
             class={`min-h-[48px] px-4 py-2 rounded-lg text-sm font-medium border ${
               noteRange.low === 'C3' && noteRange.high === 'C5'
-                ? 'border-blue-600 bg-blue-50 text-blue-700'
-                : 'border-gray-300 text-gray-700'
+                ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200'
             }`}
           >
             Two Octaves
@@ -186,12 +186,34 @@ export function SettingsPage({ settings, onUpdate }: SettingsPageProps) {
             onClick={() => handleRangePreset('A0', 'C8')}
             class={`min-h-[48px] px-4 py-2 rounded-lg text-sm font-medium border ${
               noteRange.low === 'A0' && noteRange.high === 'C8'
-                ? 'border-blue-600 bg-blue-50 text-blue-700'
-                : 'border-gray-300 text-gray-700'
+                ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200'
             }`}
           >
             Full Range
           </button>
+        </div>
+      </section>
+
+      {/* Theme */}
+      <section>
+        <SectionHeading>Theme</SectionHeading>
+        <div class="flex gap-3">
+          <ToggleButton
+            label="System"
+            pressed={theme === 'system'}
+            onClick={() => onUpdate({ theme: 'system' })}
+          />
+          <ToggleButton
+            label="Light"
+            pressed={theme === 'light'}
+            onClick={() => onUpdate({ theme: 'light' })}
+          />
+          <ToggleButton
+            label="Dark"
+            pressed={theme === 'dark'}
+            onClick={() => onUpdate({ theme: 'dark' })}
+          />
         </div>
       </section>
 
@@ -200,7 +222,7 @@ export function SettingsPage({ settings, onUpdate }: SettingsPageProps) {
         <SectionHeading>Session</SectionHeading>
         <div class="space-y-4">
           <div>
-            <label for="new-cards-per-day" class="block text-sm text-gray-700 mb-1">
+            <label for="new-cards-per-day" class="block text-sm text-gray-700 dark:text-gray-300 mb-1">
               New cards per day
             </label>
             <input
@@ -210,11 +232,11 @@ export function SettingsPage({ settings, onUpdate }: SettingsPageProps) {
               max={50}
               value={newCardsPerDay}
               onChange={(e) => handleNewCardsPerDay((e.target as HTMLInputElement).value)}
-              class="min-h-[48px] w-full px-3 py-2 border border-gray-300 rounded-lg text-base"
+              class="min-h-[48px] w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-base"
             />
           </div>
           <div>
-            <label for="session-size" class="block text-sm text-gray-700 mb-1">
+            <label for="session-size" class="block text-sm text-gray-700 dark:text-gray-300 mb-1">
               Session size
             </label>
             <input
@@ -224,7 +246,7 @@ export function SettingsPage({ settings, onUpdate }: SettingsPageProps) {
               max={100}
               value={sessionSize}
               onChange={(e) => handleSessionSize((e.target as HTMLInputElement).value)}
-              class="min-h-[48px] w-full px-3 py-2 border border-gray-300 rounded-lg text-base"
+              class="min-h-[48px] w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100 rounded-lg text-base"
             />
           </div>
         </div>

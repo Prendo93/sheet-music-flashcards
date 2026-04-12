@@ -9,9 +9,9 @@ export function SessionSummary({ reviewed, correct, onNewSession }: SessionSumma
 
   return (
     <div class="flex flex-col items-center gap-4 py-8">
-      <h2 class="text-2xl font-bold">Session Complete</h2>
+      <h2 class="text-2xl font-bold dark:text-gray-100">Session Complete</h2>
 
-      <div class="text-center">
+      <div class="text-center dark:text-gray-100">
         <p class="text-lg">
           Cards reviewed: <span class="font-semibold">{reviewed}</span>
         </p>

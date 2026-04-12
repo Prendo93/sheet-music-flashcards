@@ -5,6 +5,14 @@
   --color-incorrect: #ef4444;
   --color-slow: #f59e0b;
   --color-fast: #3b82f6;
+  --color-staff: #000000;
+  --color-staff-bg: #ffffff;
+}
+
+/* Dark mode custom properties */
+.dark {
+  --color-staff: #e5e7eb;
+  --color-staff-bg: #1f2937;
 }
 
 html, body, #app {
@@ -15,4 +23,27 @@ html, body, #app {
 body {
   font-family: system-ui, -apple-system, sans-serif;
   -webkit-font-smoothing: antialiased;
+}
+
+/* Dark mode base styles */
+html.dark {
+  background-color: #111827;  /* gray-900 */
+  color-scheme: dark;
+}
+
+html.dark body {
+  background-color: #111827;
+  color: #f3f4f6;  /* gray-100 */
+}
+
+/* VexFlow SVG dark mode overrides */
+.dark [role="img"] svg path,
+.dark [role="img"] svg line,
+.dark [role="img"] svg rect {
+  stroke: var(--color-staff) !important;
+  fill: var(--color-staff) !important;
+}
+
+.dark [role="img"] svg {
+  color: var(--color-staff);
 }
