@@ -105,27 +105,169 @@ Progressive enhancement in `ResultFeedback` component.
 - VexFlow SVG: CSS override for stroke/fill colors. Note: VexFlow hardcodes black strokes — need `svg path { stroke: var(--staff-color) }` approach. Test carefully.
 - PianoKeyboard: swap white/black key colors
 
-### Key Signatures
+### Key Signatures — Detailed Design
 
-**Critical design decision (from tech architect review):** Key-signature-affected notes get **separate card IDs** to prevent FSRS from conflating different skills.
+#### Core Concept
 
-Example: In G major, F becomes F#. Card ID `treble:F4:G` is a distinct card from `treble:F4:C`. FSRS tracks them independently.
+Key signatures tell the reader which notes are sharped or flatted throughout a piece. In G major, every F is played as F#. The sharp is shown once at the start of the staff (in the key signature), NOT next to each F note. The reader must remember which notes are affected.
 
-**Why not session-level context:** If `treble:F4` has one FSRS schedule shared across C major and G major sessions, the difficulty score averages two different skills. A user who always gets F4 right in C but wrong in G would see it scheduled as "easy" — the wrong answer.
+This is a critical sight-reading skill. A reader who ignores key signatures will play wrong notes constantly in real music.
 
-**Combinatorial cost is small:** G major only adds new cards for F-line notes (1 per octave in range), not all 7 notes. With 3 key signatures enabled, the card pool grows by ~5-10 cards, not hundreds.
+#### How It Works in the App
 
-**Implementation:**
-1. `src/lib/keySignatures.ts` — key sig definitions, `getAffectedNotes(keySig)`, `getCorrectNoteInKey(note, keySig)`
-2. Card ID format: `${clef}:${note}:${keySig}` (e.g., `treble:F4:G`)
-3. `generateCardIds()` gains a `keySignatures` parameter
-4. `SheetMusicDisplay` adds `stave.addKeySignature(keySig)` before rendering
-5. NotePicker shows accidental row when key sigs are active (even if global accidentals off)
-6. **Training scaffold:** First 2-3 cards per session show the key signature and name the affected notes before testing begins
+**All notes are tested in key-sig context.** When a key signature is active (e.g., G major), every card in the session shows the key signature on the staff. The student must read the note WITH the key signature in mind:
 
-**Settings:** `keySignatures: string[]` — default `['C']`. UI: checkboxes for available keys, introduced in circle-of-fifths order.
+- A note on the F line → answer is "F#" (because G major has F#)
+- A note on the C space → answer is still "C" (unaffected by G major)
+- A note on the D line → answer is still "D" (unaffected by G major)
 
-**Natural signs (♮) deferred** to v1.3+ — they require understanding that an accidental overrides a key signature, which is a second-order concept.
+This tests that the student can read with the key signature present — both for affected notes (they must remember to apply the sharp/flat) AND unaffected notes (they must NOT over-apply the key signature).
+
+#### VexFlow Rendering
+
+**No accidental shown on affected notes** — this is how real sheet music works. The key signature at the start of the staff tells the reader. The note sits on its line/space with no additional mark.
+
+```typescript
+// Render the stave with key signature
+const stave = new Stave(10, 40, 430)
+stave.addClef(clef).addKeySignature('G')  // Shows one sharp (F#) on the staff
+stave.setContext(context).draw()
+
+// Render the note — NO accidental modifier even though it's F#
+const staveNote = new StaveNote({
+  clef,
+  keys: ['f/4'],     // VexFlow key is 'f/4', not 'f#/4'
+  duration: 'w',
+})
+// Do NOT add Accidental('#') — the key sig handles it
+```
+
+**Key insight for VexFlow:** The note is rendered at its natural position (F line), and the key signature displayed at the start of the staff is what tells the reader it's F#. We do NOT render the note as F# with an accidental mark — that would be redundant and not how music works.
+
+#### FSRS and Card IDs
+
+**Per-key card IDs for affected notes.** The tech architect review identified that sharing one FSRS schedule across different key contexts conflates different skills.
+
+Card ID format: `${clef}:${note}:${keySig}`
+
+Examples:
+- `treble:F4:C` — F4 in C major (answer: F4) — this is the existing v1 card
+- `treble:F4:G` — F4 in G major (answer: F#4) — new card, independent FSRS schedule
+- `treble:C4:G` — C4 in G major (answer: C4) — unaffected note, but STILL a separate card because reading C4 with G major's key signature present is a different skill than reading C4 with no key signature (the student must consciously decide "this note is NOT affected")
+
+**Card generation for key signatures:**
+
+```typescript
+function generateKeySignatureCards(
+  noteRange: { low: string; high: string },
+  clefs: { treble: boolean; bass: boolean },
+  keySignatures: string[]
+): string[] {
+  const baseNotes = enumerateNotesInRange(noteRange) // naturals in range
+  const enabledClefs = getEnabledClefs(clefs)
+  const cards: string[] = []
+
+  for (const keySig of keySignatures) {
+    if (keySig === 'C') continue  // C major cards already exist as base cards (no key sig suffix)
+
+    for (const note of baseNotes) {
+      for (const clef of enabledClefs) {
+        cards.push(`${clef}:${note}:${keySig}`)
+      }
+    }
+  }
+
+  return cards
+}
+```
+
+**Combinatorial analysis:**
+- E4–F5 range (9 naturals) × 1 clef × G major = 9 new cards
+- E4–F5 range × 1 clef × G + F major = 18 new cards
+- Even with 4 key signatures and 2 clefs: 9 × 2 × 4 = 72 cards — manageable
+
+#### Correct Answer Logic
+
+```typescript
+// src/lib/keySignatures.ts
+
+const KEY_SIGNATURES: Record<string, Record<string, string>> = {
+  'C': {},                                    // no modifications
+  'G': { 'F': 'F#' },                        // F → F# in all octaves
+  'D': { 'F': 'F#', 'C': 'C#' },
+  'A': { 'F': 'F#', 'C': 'C#', 'G': 'G#' },
+  'E': { 'F': 'F#', 'C': 'C#', 'G': 'G#', 'D': 'D#' },
+  'F': { 'B': 'Bb' },
+  'Bb': { 'B': 'Bb', 'E': 'Eb' },
+  'Eb': { 'B': 'Bb', 'E': 'Eb', 'A': 'Ab' },
+}
+
+function getCorrectAnswer(note: string, keySig: string): string {
+  const parsed = parseNote(note)  // e.g., { letter: 'F', accidental: null, octave: 4 }
+  const modifications = KEY_SIGNATURES[keySig] || {}
+  const modified = modifications[parsed.letter]
+
+  if (modified) {
+    // This note's letter is affected by the key signature
+    // e.g., F → F# in G major
+    return `${modified}${parsed.octave}`  // "F#4"
+  }
+
+  // Not affected — answer is the natural note
+  return note  // "C4"
+}
+```
+
+#### NotePicker Adaptation
+
+When key signatures are active, the NotePicker MUST show the accidental row (♮ / ♯ / ♭), even if the global accidentals setting is off. The student needs to be able to answer "F#4" for affected notes.
+
+```typescript
+const showAccidentals = settings.accidentals.sharps ||
+                         settings.accidentals.flats ||
+                         sessionKeySignature !== 'C'
+```
+
+#### Session Key Selection
+
+When starting a session with key signatures enabled:
+1. Randomly select ONE key signature from the enabled list
+2. ALL cards in that session use this key context
+3. Display the selected key at the top: "Studying in G major"
+4. This models real music (a piece is in one key)
+
+Future enhancement: mixed-key sessions where the key changes mid-session (more advanced).
+
+#### Settings UI
+
+```
+Key Signatures section:
+  [C] [G] [D] [A] [E]     ← sharp keys (circle of fifths order)
+  [F] [Bb] [Eb] [Ab]      ← flat keys
+
+Currently studying: G major (1 sharp: F#)
+```
+
+Toggle buttons, multiple can be selected. When a session starts, one is randomly chosen. C is always enabled (can't be deselected).
+
+#### Progression Integration
+
+| Level | Key Signatures Unlocked |
+|---|---|
+| 0–3 | C only (no key signature) |
+| 4 | G major (1#) and F major (1♭) |
+| 5 | D major (2#) and B♭ major (2♭) |
+| 6–7 | (range/other features) |
+| 8 | A, E♭ major (3#/3♭) |
+| 9+ | All keys available |
+
+#### Natural Signs (♮) — Deferred
+
+When a note that IS affected by the key signature needs to be played as natural (a chromatic alteration within the piece), a natural sign (♮) is shown next to the note. This is a second-order concept:
+- Student must know the key signature says "F is F#"
+- Student must then see the ♮ and override that to "F is F natural here"
+
+This requires explicit ♮ rendering in VexFlow (`new Accidental('n')`) and a different card type. Defer to v1.4+.
 
 ### Estimated effort: 3–4 days
 
@@ -146,14 +288,12 @@ Example: In G major, F becomes F#. Card ID `treble:F4:G` is a distinct card from
 | 4 | Key Sigs I | G major and F major |
 | 5 | Key Sigs II | D, Bb, A, Eb major |
 | 6 | Wider Range | 2+ ledger lines: A3–C6 (treble), C2–E4 (bass) |
-| 7 | Basic Rhythm | Note duration identification (whole, half, quarter, eighth) |
-| 8 | All Keys | Remaining major key signatures |
-| 9+ | Full Control | Manual settings, no further auto-unlock |
+| 7 | All Keys | Remaining major key signatures |
+| 8+ | Full Control | Manual settings, no further auto-unlock |
 
 **Key changes from original:**
 - Accidentals before range expansion (build naming skill before spatial expansion)
 - Ledger lines folded into range expansion, not isolated
-- Basic rhythm at level 7 (earlier than original v2.2)
 - Landmark notes (treble G, bass F, middle C) trained implicitly at levels 0-3
 
 ### Unlock Criteria
@@ -218,20 +358,47 @@ Full import with merge logic:
 - "Add to Home Screen" prompt (detect `beforeinstallprompt`, show on 3rd visit)
 - Weekly backup reminder if `navigator.storage.persisted()` returns false
 
-### Basic Rhythm Cards
-
-Note duration identification — "what kind of note is this?" (whole, half, quarter, eighth):
-- VexFlow already supports duration codes (`'w'`, `'h'`, `'q'`, `'8'`)
-- New card type: show a note with a specific duration, user identifies the duration
-- Duration picker UI: 4 buttons (whole, half, quarter, eighth)
-- Separate from pitch identification (user doesn't need to name the note, just the duration)
-
 ### Virtual Piano Input Mode
 
 Make the existing `PianoKeyboard` component tappable as an input method (alternative to NotePicker):
 - User taps the correct key on the piano diagram
 - Settings toggle: "Input mode" → Note Picker / Piano Keyboard
 - Reuses existing `PianoKeyboard.tsx` with added `onKeyTap` callback
+
+### Audio Note Recognition Input Mode
+
+Use the device microphone to detect which note the user plays on their real piano.
+
+**How it works:**
+1. User sees note on staff → plays it on their piano near the phone
+2. App captures audio via `navigator.mediaDevices.getUserMedia({ audio: true })`
+3. Pitch detection algorithm (autocorrelation or FFT) identifies the fundamental frequency
+4. Convert frequency to MIDI note number → note name
+5. Compare with correct answer
+
+**Implementation:**
+- `src/lib/pitchDetection.ts` — microphone capture + pitch detection
+- Use the Web Audio API `AnalyserNode` to get frequency data
+- Autocorrelation algorithm for pitch detection (~100 lines, well-documented algorithm)
+- Accuracy target: correctly identify piano notes within ±50 cents (half a semitone)
+- Latency: detect within 200ms of note onset
+
+**UI flow:**
+- Settings toggle: "Input mode" → Note Picker / Piano Keyboard / Play on Piano
+- When active, show a microphone indicator and "Play the note..." prompt instead of NotePicker
+- Visual feedback: detected frequency shown in real-time, locks in when stable for 100ms
+- Fallback: if mic permission denied, show explanation + fall back to NotePicker
+
+**Permissions:**
+- `getUserMedia` requires HTTPS (already via PWA) and user permission
+- Handle denial gracefully — disable the toggle and show explanation
+- Show permission prompt on first enable, not on app startup
+
+**Challenges:**
+- Background noise filtering — piano notes have strong harmonics, use fundamental frequency
+- Octave detection — autocorrelation can confuse octaves; use amplitude-weighted detection
+- Multiple notes — if user accidentally plays two keys, take the loudest/most recent
+- Mobile mic quality — test on real devices; phone mics are surprisingly good for pitch detection
 
 ### Estimated effort: 3–4 days
 
@@ -241,44 +408,29 @@ Make the existing `PianoKeyboard` component tappable as an input method (alterna
 
 These are not committed. Build if demand materializes.
 
-### v2.0 — Intervals
+### v2.0 — Intervals + Chords (Combined)
 
-Show two notes on the staff → user identifies the interval name.
+Intervals ARE chords — a 2-note chord is an interval, a 3-note chord is a triad. Treat them as one feature with progressive difficulty.
 
-- Intervals BEFORE chords (a chord is a stack of intervals)
-- Progressive: 3rds → 5ths/4ths → 2nds → 6ths/7ths → tritone
-- New card type: `type: 'interval'` with `notes: string[]`
-- Schema change: CardRecord gains `type` and `notes` fields
-- Batch migration in `openDB` upgrade callback (not lazy per-record)
+**Progressive difficulty:**
+1. **2-note intervals:** Show 2 stacked notes → identify the interval name (3rd, 5th, etc.) AND both note names
+2. **Major/minor triads (root position):** 3 stacked notes → identify chord name (C major, Am, etc.)
+3. **Triad inversions:** Same triads in 1st and 2nd inversion
+4. **7th chords:** Dominant 7th, major 7th, minor 7th
 
-### v2.1 — Chords
+**Input:** Root note picker + quality selector (Major / Minor / Dim / Aug / 7th). For intervals: interval name buttons (2nd through octave).
 
-Stacked notes → user identifies chord name.
+**Schema change:** CardRecord gains `type: 'single' | 'chord'` and `notes: string[]`. Batch migration in `openDB` upgrade — existing single-note cards get `type: 'single'` and `notes: [note]`.
 
-- Major triads (root) → minor triads → inversions → 7th chords
-- Input: root note + quality picker (Major / Minor / Dim / Aug / 7th)
-- Separate "Chord Mode" toggle, not mixed with single notes
+**VexFlow:** Render chords as stacked note heads on one stem. Already supported.
 
-### v2.2 — MIDI Input (Desktop Only)
-
-Web MIDI API — Chrome/Edge only, no Safari/Firefox. Desktop feature.
-
-- Conditionally show MIDI toggle based on `navigator.requestMIDIAccess` existence
-- Hide on mobile entirely
-- Answer by playing note on real keyboard
-- Fallback to NotePicker on disconnect
-
-### v2.3 — Multi-Note Sequences
+### v2.1 — Multi-Note Sequences
 
 3-4 notes in a measure → identify in order.
 
 - Intermediate step: "note pairs" (2 notes) before full sequences
 - Trains left-to-right scanning and pattern recognition
 - Sequential NotePicker input — each correct note highlights green on staff
-
-### v2.4 — Advanced Rhythm
-
-Tap-along mode: user taps rhythm in time, app analyzes timing accuracy.
 
 ---
 
@@ -296,10 +448,9 @@ Per-record `schema_version` retained only for the import path (records may arriv
 |---|---|---|
 | 1 | v1 (current) | Initial: cards, reviewLogs, settings stores |
 | 2 | v1.1 | UserSettings: `+audioFeedback`, `+theme` |
-| 3 | v1.2 | UserSettings: `+keySignatures`. Card IDs gain key context suffix. |
+| 3 | v1.2 | UserSettings: `+keySignatures`. New key-sig cards generated (additive, no migration of existing cards). |
 | 4 | v1.3 | UserSettings: `+autoProgression`, `+progressionLevel`. `+dailySummary` store. |
-| 5 | v1.5 | CardRecord: `+duration` for rhythm cards. `+type` field. |
-| 6 | v2.0 | CardRecord: `note` → `notes[]` array. Batch migration of existing cards. |
+| 5 | v2.0 | CardRecord: `+type` (single/chord), `note` → `notes[]` array. Batch migration of existing cards. |
 
 Migration functions are written when needed, not pre-written.
 
