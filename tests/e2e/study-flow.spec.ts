@@ -128,7 +128,7 @@ test.describe('Study Flow', () => {
       if (await skipBtn.isVisible().catch(() => false)) {
         await skipBtn.click()
         // Wait for reveal to auto-advance (4s timeout in the component)
-        await page.waitForTimeout(4200)
+        await page.waitForTimeout(2200)
       } else {
         // Wait a bit for possible transition
         await page.waitForTimeout(500)

@@ -79,7 +79,7 @@ test.describe('Settings', () => {
       if (await skipBtn.isVisible().catch(() => false)) {
         await skipBtn.click()
         // Wait for auto-advance
-        await page.waitForTimeout(4500)
+        await page.waitForTimeout(2200)
       } else {
         break
       }

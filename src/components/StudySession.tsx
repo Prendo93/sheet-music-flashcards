@@ -6,6 +6,7 @@ import { SheetMusicDisplay } from './SheetMusicDisplay.tsx'
 import { NotePicker } from './NotePicker.tsx'
 import { ResultFeedback } from './ResultFeedback.tsx'
 import { SessionSummary } from './SessionSummary.tsx'
+import { PianoKeyboard } from './PianoKeyboard.tsx'
 import { parseNote } from '../lib/music.ts'
 
 interface StudySessionProps {
@@ -35,7 +36,7 @@ export function StudySession({ db, settings, onSessionActive }: StudySessionProp
     if (state.phase === 'revealing') {
       const timer = setTimeout(() => {
         nextCard()
-      }, 4000)
+      }, 2000)
       return () => clearTimeout(timer)
     }
   }, [state.phase, nextCard])
@@ -106,13 +107,20 @@ export function StudySession({ db, settings, onSessionActive }: StudySessionProp
       )}
 
       {state.phase === 'revealing' && state.lastRating !== null && (
-        <ResultFeedback
-          correct={state.lastCorrect ?? false}
-          rating={state.lastRating}
-          correctAnswer={card.note}
-          userAnswer={state.lastAnswer ?? ''}
-          onUndo={undoLastGrade}
-        />
+        <div class="flex flex-col gap-3">
+          <PianoKeyboard
+            highlightNote={card.note}
+            lowNote={settings.noteRange.low}
+            highNote={settings.noteRange.high}
+          />
+          <ResultFeedback
+            correct={state.lastCorrect ?? false}
+            rating={state.lastRating}
+            correctAnswer={card.note}
+            userAnswer={state.lastAnswer ?? ''}
+            onUndo={undoLastGrade}
+          />
+        </div>
       )}
     </div>
   )

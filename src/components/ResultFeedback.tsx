@@ -22,7 +22,7 @@ export function ResultFeedback({
   correctAnswer,
   userAnswer: _userAnswer,
   onUndo,
-  undoTimeoutMs = 4000,
+  undoTimeoutMs = 2000,
 }: ResultFeedbackProps) {
   const [showUndo, setShowUndo] = useState(true)
 
