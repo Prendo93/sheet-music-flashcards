@@ -66,10 +66,10 @@ export interface UserSettings {
     goodMs: number
   }
   theme: 'system' | 'light' | 'dark'
+  inputMode: 'picker' | 'piano' | 'microphone'
   hasSeenOnboarding: boolean
   autoProgression: boolean
   progressionLevel: number
-  keySignatures: string[]
   schema_version: 1
   updated_at: Date
 }
@@ -84,10 +84,10 @@ export const DEFAULT_SETTINGS: UserSettings = {
   sessionSize: 20,
   autoGradeThresholds: { easyMs: 2000, goodMs: 5000 },
   theme: 'system',
+  inputMode: 'picker',
   hasSeenOnboarding: false,
   autoProgression: true,
   progressionLevel: 0,
-  keySignatures: ['C'],
   schema_version: 1,
   updated_at: new Date(),
 }
