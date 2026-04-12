@@ -151,6 +151,70 @@ describe('SettingsPage', () => {
     expect(onUpdate).toHaveBeenCalledWith({ sessionSize: 5 })
   })
 
+  // ============================================================
+  // Key Signatures
+  // ============================================================
+
+  it('renders key signature toggles with C always pressed', () => {
+    const settings = makeSettings({ keySignatures: ['C'] })
+    render(<SettingsPage settings={settings} onUpdate={vi.fn()} />)
+
+    // Find the C button within the Key Signatures section
+    const buttons = screen.getAllByRole('button')
+    const cButton = buttons.find((b) => b.textContent === 'C' && b.getAttribute('aria-pressed') === 'true')
+    expect(cButton).toBeTruthy()
+    expect(cButton).toBeDisabled()
+  })
+
+  it('toggling G key signature calls onUpdate', () => {
+    const onUpdate = vi.fn()
+    const settings = makeSettings({ keySignatures: ['C'] })
+    render(<SettingsPage settings={settings} onUpdate={onUpdate} />)
+
+    const buttons = screen.getAllByRole('button')
+    const gButton = buttons.find((b) => b.textContent === 'G')!
+    expect(gButton).toBeTruthy()
+
+    fireEvent.click(gButton)
+    expect(onUpdate).toHaveBeenCalledWith({ keySignatures: ['C', 'G'] })
+  })
+
+  it('toggling an already-enabled key signature removes it', () => {
+    const onUpdate = vi.fn()
+    const settings = makeSettings({ keySignatures: ['C', 'G', 'F'] })
+    render(<SettingsPage settings={settings} onUpdate={onUpdate} />)
+
+    const buttons = screen.getAllByRole('button')
+    const gButton = buttons.find((b) => b.textContent === 'G' && b.getAttribute('aria-pressed') === 'true')!
+    expect(gButton).toBeTruthy()
+
+    fireEvent.click(gButton)
+    expect(onUpdate).toHaveBeenCalledWith({ keySignatures: ['C', 'F'] })
+  })
+
+  it('C key signature cannot be deselected', () => {
+    const onUpdate = vi.fn()
+    const settings = makeSettings({ keySignatures: ['C'] })
+    render(<SettingsPage settings={settings} onUpdate={onUpdate} />)
+
+    const buttons = screen.getAllByRole('button')
+    const cButton = buttons.find((b) => b.textContent === 'C')!
+    fireEvent.click(cButton)
+    expect(onUpdate).not.toHaveBeenCalled()
+  })
+
+  it('renders all 8 key signature buttons', () => {
+    const settings = makeSettings({ keySignatures: ['C'] })
+    render(<SettingsPage settings={settings} onUpdate={vi.fn()} />)
+
+    const allKeys = ['C', 'G', 'D', 'A', 'E', 'F', 'Bb', 'Eb']
+    const buttons = screen.getAllByRole('button')
+    for (const key of allKeys) {
+      const found = buttons.find((b) => b.textContent === key)
+      expect(found).toBeTruthy()
+    }
+  })
+
   it('clamps new cards per day to valid range', () => {
     const onUpdate = vi.fn()
     const settings = makeSettings({ newCardsPerDay: 10 })

@@ -48,7 +48,7 @@ function clamp(value: number, min: number, max: number): number {
 }
 
 export function SettingsPage({ settings, onUpdate }: SettingsPageProps) {
-  const { clefs, accidentals, noteRange, sessionSize, newCardsPerDay } = settings
+  const { clefs, accidentals, keySignatures, noteRange, sessionSize, newCardsPerDay } = settings
 
   const bothClefsOn = clefs.treble && clefs.bass
 
@@ -62,6 +62,16 @@ export function SettingsPage({ settings, onUpdate }: SettingsPageProps) {
   function handleAccidentalToggle(type: 'sharps' | 'flats') {
     const newAccidentals = { ...accidentals, [type]: !accidentals[type] }
     onUpdate({ accidentals: newAccidentals })
+  }
+
+  function handleKeySignatureToggle(key: string) {
+    // C is always enabled, cannot be deselected
+    if (key === 'C') return
+    const current = keySignatures ?? ['C']
+    const newKeys = current.includes(key)
+      ? current.filter((k) => k !== key)
+      : [...current, key]
+    onUpdate({ keySignatures: newKeys })
   }
 
   function handleRangePreset(low: string, high: string) {
@@ -113,6 +123,32 @@ export function SettingsPage({ settings, onUpdate }: SettingsPageProps) {
             pressed={accidentals.flats}
             onClick={() => handleAccidentalToggle('flats')}
           />
+        </div>
+      </section>
+
+      {/* Key Signatures */}
+      <section>
+        <SectionHeading>Key Signatures</SectionHeading>
+        <div class="flex gap-3 flex-wrap mb-2">
+          {['C', 'G', 'D', 'A', 'E'].map((key) => (
+            <ToggleButton
+              key={key}
+              label={key}
+              pressed={(keySignatures ?? ['C']).includes(key)}
+              disabled={key === 'C'}
+              onClick={() => handleKeySignatureToggle(key)}
+            />
+          ))}
+        </div>
+        <div class="flex gap-3 flex-wrap">
+          {['F', 'Bb', 'Eb'].map((key) => (
+            <ToggleButton
+              key={key}
+              label={key}
+              pressed={(keySignatures ?? ['C']).includes(key)}
+              onClick={() => handleKeySignatureToggle(key)}
+            />
+          ))}
         </div>
       </section>
 

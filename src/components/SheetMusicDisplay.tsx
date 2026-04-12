@@ -6,6 +6,7 @@ interface SheetMusicDisplayProps {
   note: string
   clef: Clef
   accidental?: Accidental
+  keySignature?: string
 }
 
 // Lazy-load VexFlow to keep initial bundle small
@@ -18,7 +19,7 @@ function loadVexFlow() {
   return vexflowPromise
 }
 
-function SheetMusicDisplayInner({ note, clef, accidental }: SheetMusicDisplayProps) {
+function SheetMusicDisplayInner({ note, clef, accidental, keySignature }: SheetMusicDisplayProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -46,6 +47,9 @@ function SheetMusicDisplayInner({ note, clef, accidental }: SheetMusicDisplayPro
           // Create stave
           const stave = new Stave(10, 40, 430)
           stave.addClef(clef)
+          if (keySignature) {
+            stave.addKeySignature(keySignature)
+          }
           stave.setContext(context).draw()
 
           // Create note — VexFlow format: "c#/5" from "C#5"
@@ -56,11 +60,16 @@ function SheetMusicDisplayInner({ note, clef, accidental }: SheetMusicDisplayPro
             duration: 'w',
           })
 
-          // Add accidental modifier if present
-          if (accidental === '#') {
-            staveNote.addModifier(new VFAccidental('#'))
-          } else if (accidental === 'b') {
-            staveNote.addModifier(new VFAccidental('b'))
+          // Add accidental modifier if present and NO key signature is handling it.
+          // When a key signature is set, the key sig at the start of the staff
+          // tells the reader which notes are sharped/flatted — no individual
+          // accidental modifier is rendered on the note.
+          if (!keySignature) {
+            if (accidental === '#') {
+              staveNote.addModifier(new VFAccidental('#'))
+            } else if (accidental === 'b') {
+              staveNote.addModifier(new VFAccidental('b'))
+            }
           }
 
           // Format and draw
@@ -93,7 +102,7 @@ function SheetMusicDisplayInner({ note, clef, accidental }: SheetMusicDisplayPro
       cancelled = true
       container.replaceChildren()
     }
-  }, [note, clef, accidental])
+  }, [note, clef, accidental, keySignature])
 
   // Build aria-label
   const accidentalName = accidental === '#' ? ' sharp' : accidental === 'b' ? ' flat' : ''

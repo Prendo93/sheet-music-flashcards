@@ -56,6 +56,7 @@ export interface UserSettings {
   noteRange: { low: string; high: string }
   clefs: { treble: boolean; bass: boolean }
   accidentals: { sharps: boolean; flats: boolean }
+  keySignatures: string[]
   newCardsPerDay: number
   sessionSize: number
   autoGradeThresholds: {
@@ -77,6 +78,7 @@ export const DEFAULT_SETTINGS: UserSettings = {
   noteRange: { low: 'E4', high: 'F5' },
   clefs: { treble: true, bass: false },
   accidentals: { sharps: false, flats: false },
+  keySignatures: ['C'],
   newCardsPerDay: 10,
   sessionSize: 20,
   autoGradeThresholds: { easyMs: 2000, goodMs: 5000 },
