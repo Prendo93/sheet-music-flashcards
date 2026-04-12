@@ -27,6 +27,14 @@ export function ResultFeedback({
   const [showUndo, setShowUndo] = useState(true)
 
   useEffect(() => {
+    if (correct) {
+      navigator.vibrate?.(50)       // short pulse for correct
+    } else {
+      navigator.vibrate?.([50, 50, 50])  // triple pulse for incorrect
+    }
+  }, [correct])
+
+  useEffect(() => {
     const timer = setTimeout(() => {
       setShowUndo(false)
     }, undoTimeoutMs)
