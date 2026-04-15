@@ -4,6 +4,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { VitePWA } from 'vite-plugin-pwa'
 
 export default defineConfig({
+  base: '/sheet-music-flashcards/',
   plugins: [
     preact(),
     tailwindcss(),
@@ -13,7 +14,7 @@ export default defineConfig({
         name: 'Sheet Music Flashcards',
         short_name: 'Flashcards',
         description: 'Learn to read sheet music with spaced repetition',
-        start_url: '/',
+        start_url: '/sheet-music-flashcards/',
         display: 'standalone',
         orientation: 'portrait',
         background_color: '#ffffff',
