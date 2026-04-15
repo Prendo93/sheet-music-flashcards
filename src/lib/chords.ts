@@ -1,4 +1,3 @@
-import type { ParsedNote } from '../types.ts'
 import { noteToMidi, midiToNoteName, parseNote } from './music.ts'
 
 // ============================================================
