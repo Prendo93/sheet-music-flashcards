@@ -88,4 +88,39 @@ describe('PianoKeyboard', () => {
     const piano = container.querySelector('[role="img"]')
     expect(piano!.getAttribute('aria-label')).toMatch(/G4/)
   })
+
+  // ── Dual highlight (wrongNote) ────────────────────────────
+
+  it('highlights correct note in green and wrong note in red when wrongNote is provided', () => {
+    const { container } = render(
+      <PianoKeyboard
+        highlightNote="E4"
+        wrongNote="D4"
+        lowNote="C4"
+        highNote="B4"
+      />
+    )
+    const correctKey = container.querySelector('[data-note="E4"]')
+    const wrongKey = container.querySelector('[data-note="D4"]')
+
+    expect(correctKey!.classList.toString()).toContain('green')
+    expect(wrongKey!.classList.toString()).toContain('red')
+  })
+
+  it('does not show red highlight when wrongNote is not provided', () => {
+    const { container } = render(
+      <PianoKeyboard highlightNote="E4" lowNote="C4" highNote="B4" />
+    )
+    const allKeys = container.querySelectorAll('[data-key-type]')
+    const hasRed = Array.from(allKeys).some((k) => k.classList.toString().includes('red'))
+    expect(hasRed).toBe(false)
+  })
+
+  it('uses blue highlight by default when no wrongNote', () => {
+    const { container } = render(
+      <PianoKeyboard highlightNote="E4" lowNote="C4" highNote="B4" />
+    )
+    const correctKey = container.querySelector('[data-note="E4"]')
+    expect(correctKey!.classList.toString()).toContain('blue')
+  })
 })

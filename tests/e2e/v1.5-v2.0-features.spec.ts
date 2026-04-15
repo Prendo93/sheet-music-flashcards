@@ -42,23 +42,14 @@ test.describe('Piano Input (v1.5)', () => {
 
     // Navigate back to study
     await page.getByRole('button', { name: 'Study' }).click()
-    await expect(page.getByRole('button', { name: 'Submit answer' })).toBeVisible({ timeout: 15000 })
 
-    // The piano keyboard shows keys as role="button" with aria-labels like "Play C4"
-    // In the revealing phase, a PianoKeyboard is shown; verify at least the study view loaded
-    // Since piano input mode may not be fully wired yet, verify the study view is functional
-    const pianoGroup = page.locator('[aria-label="Piano keyboard"]')
-    const hasPiano = await pianoGroup.isVisible({ timeout: 5000 }).catch(() => false)
+    // Piano input mode shows an interactive keyboard (role=group) and a Check button
+    await expect(page.getByRole('group', { name: /piano/i })).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('button', { name: 'Check' })).toBeVisible()
 
-    // If piano input is wired up, verify keys exist
-    if (hasPiano) {
-      const pianoKeys = pianoGroup.locator('[role="button"]')
-      await expect(pianoKeys.first()).toBeVisible()
-    } else {
-      // Piano input mode setting exists but study view still shows note picker
-      // Verify the study view is still functional
-      await expect(page.getByRole('button', { name: 'Submit answer' })).toBeVisible()
-    }
+    // Verify piano keys exist
+    const pianoKeys = page.locator('[data-key-type="white"]')
+    await expect(pianoKeys.first()).toBeVisible()
   })
 })
 

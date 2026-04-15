@@ -131,7 +131,27 @@ describe('PianoKeyboard (input mode)', () => {
     expect(onKeyTap).toHaveBeenNthCalledWith(3, 'E4')
   })
 
-  // ── All black keys use sharp names ────────────────────────
+  // ── preferSharp prop ───────────────────────────────────────
+
+  it('emits flat names when preferSharp is false', () => {
+    const onKeyTap = vi.fn()
+    render(<PianoKeyboard lowNote="C4" highNote="B4" onKeyTap={onKeyTap} preferSharp={false} />)
+
+    fireEvent.click(screen.getByLabelText('Play D flat 4'))
+    expect(onKeyTap).toHaveBeenCalledWith('Db4')
+  })
+
+  it('labels black keys with flat names when preferSharp is false', () => {
+    render(<PianoKeyboard lowNote="C4" highNote="B4" preferSharp={false} />)
+
+    expect(screen.getByLabelText('Play D flat 4')).toBeInTheDocument()
+    expect(screen.getByLabelText('Play E flat 4')).toBeInTheDocument()
+    expect(screen.getByLabelText('Play G flat 4')).toBeInTheDocument()
+    expect(screen.getByLabelText('Play A flat 4')).toBeInTheDocument()
+    expect(screen.getByLabelText('Play B flat 4')).toBeInTheDocument()
+  })
+
+  // ── All black keys use sharp names (default) ─────────────
 
   it('all black keys use sharp names, not flat names', () => {
     const onKeyTap = vi.fn()

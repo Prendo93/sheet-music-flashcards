@@ -7,6 +7,7 @@ import { NotePicker } from './NotePicker.tsx'
 import { ResultFeedback } from './ResultFeedback.tsx'
 import { SessionSummary } from './SessionSummary.tsx'
 import { PianoKeyboard } from './PianoKeyboard.tsx'
+import { PianoInput } from './PianoInput.tsx'
 import { parseNote, noteToMidi } from '../lib/music.ts'
 import { playNote } from '../lib/synth.ts'
 
@@ -93,11 +94,20 @@ export function StudySession({ db, settings, onSessionActive }: StudySessionProp
       {/* Input or result */}
       {state.phase === 'showing_card' && (
         <div class="flex flex-col gap-3">
-          <NotePicker
-            onSubmit={submitAnswer}
-            showAccidentals={settings.accidentals.sharps || settings.accidentals.flats}
-            octaveRange={octaveRange}
-          />
+          {settings.inputMode === 'piano' ? (
+            <PianoInput
+              onSubmit={submitAnswer}
+              lowNote={settings.noteRange.low}
+              highNote={settings.noteRange.high}
+              accidentals={settings.accidentals}
+            />
+          ) : (
+            <NotePicker
+              onSubmit={submitAnswer}
+              showAccidentals={settings.accidentals.sharps || settings.accidentals.flats}
+              octaveRange={octaveRange}
+            />
+          )}
           <button
             type="button"
             class="w-full py-3 text-sm text-gray-500 underline"
@@ -112,6 +122,7 @@ export function StudySession({ db, settings, onSessionActive }: StudySessionProp
         <div class="flex flex-col gap-3">
           <PianoKeyboard
             highlightNote={card.note}
+            wrongNote={state.lastCorrect ? undefined : (state.lastAnswer ?? undefined)}
             lowNote={settings.noteRange.low}
             highNote={settings.noteRange.high}
           />
