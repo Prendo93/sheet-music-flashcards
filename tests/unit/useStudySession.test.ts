@@ -86,6 +86,29 @@ describe('useStudySession', () => {
     expect(result.current.state.queue.length).toBeGreaterThan(0)
   })
 
+  it('shuffles the session queue (does not preserve insertion order)', async () => {
+    // Use enough cards that the chance of accidentally getting insertion order is negligible
+    const cards = Array.from({ length: 20 }, (_, i) =>
+      makeCard({ id: `treble:N${i}`, note: `N${i}` })
+    )
+    const db = createMockDb(cards)
+
+    // Run startSession multiple times and check that order varies
+    const orders: string[][] = []
+    for (let trial = 0; trial < 5; trial++) {
+      const { result } = renderHook(() => useStudySession(db, { ...settings, sessionSize: 20 }))
+      await act(async () => {
+        await result.current.startSession()
+      })
+      const order = [result.current.state.currentCardId!, ...result.current.state.queue]
+      orders.push(order)
+    }
+
+    // At least 2 of the 5 orders should differ from each other
+    const uniqueOrders = new Set(orders.map(o => o.join(',')))
+    expect(uniqueOrders.size).toBeGreaterThan(1)
+  })
+
   it('startSession with empty queue goes to session_complete', async () => {
     const db = createMockDb([])
 

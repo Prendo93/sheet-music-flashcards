@@ -117,11 +117,29 @@ interface CardGenerationConfig {
   accidentals: { sharps: boolean; flats: boolean }
 }
 
+/**
+ * Per-clef natural register caps. Notes outside these MIDI ranges are not
+ * generated as cards for that clef — e.g., F5 on a bass clef would require
+ * many ledger lines and look like a "treble note on the wrong staff."
+ *
+ * Bass clef cap: C5 (MIDI 72) — covers the bass staff plus middle C / one
+ *   ledger line above for the C-above-middle-C area.
+ * Treble clef floor: A3 (MIDI 57) — covers the treble staff plus a ledger
+ *   line below for the middle-C area.
+ */
+const BASS_MIDI_MAX = 72  // C5
+const TREBLE_MIDI_MIN = 57 // A3
+
+function isInClefRegister(midi: number, clef: 'bass' | 'treble'): boolean {
+  if (clef === 'bass') return midi <= BASS_MIDI_MAX
+  return midi >= TREBLE_MIDI_MIN
+}
+
 export function generateCardIds(config: CardGenerationConfig): string[] {
   const { noteRange, clefs, accidentals } = config
 
   // Determine enabled clefs
-  const enabledClefs: string[] = []
+  const enabledClefs: Array<'bass' | 'treble'> = []
   if (clefs.bass) enabledClefs.push('bass')
   if (clefs.treble) enabledClefs.push('treble')
 
@@ -152,12 +170,13 @@ export function generateCardIds(config: CardGenerationConfig): string[] {
     }
   }
 
-  // Build card IDs: cross notes with clefs
+  // Build card IDs: cross notes with clefs, filtered by per-clef natural register
   // Sort by MIDI, then by note name (sharp before flat, since '#' < 'D'), then by clef
   const cards: Array<{ id: string; midi: number; noteName: string; clef: string }> = []
 
   for (const note of notes) {
     for (const clef of enabledClefs) {
+      if (!isInClefRegister(note.midi, clef)) continue
       cards.push({
         id: `${clef}:${note.name}`,
         midi: note.midi,

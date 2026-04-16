@@ -172,6 +172,17 @@ export function SettingsPage({ settings, onUpdate }: SettingsPageProps) {
           </button>
           <button
             type="button"
+            onClick={() => handleRangePreset('G2', 'A3')}
+            class={`min-h-[48px] px-4 py-2 rounded-lg text-sm font-medium border ${
+              noteRange.low === 'G2' && noteRange.high === 'A3'
+                ? 'border-blue-600 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300'
+                : 'border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-200'
+            }`}
+          >
+            Bass Octave
+          </button>
+          <button
+            type="button"
             onClick={() => handleRangePreset('C3', 'C5')}
             class={`min-h-[48px] px-4 py-2 rounded-lg text-sm font-medium border ${
               noteRange.low === 'C3' && noteRange.high === 'C5'

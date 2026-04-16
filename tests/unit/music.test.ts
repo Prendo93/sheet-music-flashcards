@@ -409,4 +409,62 @@ describe('generateCardIds', () => {
     })
     expect(ids).toEqual(['treble:E4', 'treble:F4'])
   })
+
+  // ── Per-clef natural register filtering ───────────────────
+
+  it('does not generate bass clef cards above C5 (treble register)', () => {
+    const ids = generateCardIds({
+      noteRange: { low: 'D5', high: 'F5' },
+      clefs: { treble: false, bass: true },
+      accidentals: { sharps: false, flats: false },
+    })
+    // D5, E5, F5 are above the bass-clef cap (C5), so no bass cards
+    expect(ids).toEqual([])
+  })
+
+  it('does not generate treble clef cards below A3 (bass register)', () => {
+    const ids = generateCardIds({
+      noteRange: { low: 'C3', high: 'G3' },
+      clefs: { treble: true, bass: false },
+      accidentals: { sharps: false, flats: false },
+    })
+    // C3, D3, E3, F3, G3 are below the treble-clef floor (A3), so no treble cards
+    expect(ids).toEqual([])
+  })
+
+  it('with both clefs and grand-staff range, splits naturally at middle C area', () => {
+    const ids = generateCardIds({
+      noteRange: { low: 'C3', high: 'C5' },
+      clefs: { treble: true, bass: true },
+      accidentals: { sharps: false, flats: false },
+    })
+    // Bass should include C3 through C5 (all within bass cap)
+    // Treble should include A3 through C5 (filtered by treble floor)
+    const bassCards = ids.filter((id) => id.startsWith('bass:'))
+    const trebleCards = ids.filter((id) => id.startsWith('treble:'))
+    expect(bassCards).toContain('bass:C3')
+    expect(bassCards).toContain('bass:C5')
+    expect(trebleCards).not.toContain('treble:C3')
+    expect(trebleCards).not.toContain('treble:G3')
+    expect(trebleCards).toContain('treble:A3')
+    expect(trebleCards).toContain('treble:C5')
+  })
+
+  it('bass clef cards include up to C5 (one ledger line above bass staff)', () => {
+    const ids = generateCardIds({
+      noteRange: { low: 'A4', high: 'C5' },
+      clefs: { treble: false, bass: true },
+      accidentals: { sharps: false, flats: false },
+    })
+    expect(ids).toEqual(['bass:A4', 'bass:B4', 'bass:C5'])
+  })
+
+  it('treble clef cards include down to A3 (one ledger line below treble staff)', () => {
+    const ids = generateCardIds({
+      noteRange: { low: 'A3', high: 'C4' },
+      clefs: { treble: true, bass: false },
+      accidentals: { sharps: false, flats: false },
+    })
+    expect(ids).toEqual(['treble:A3', 'treble:B3', 'treble:C4'])
+  })
 })

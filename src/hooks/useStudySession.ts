@@ -148,6 +148,13 @@ export function useStudySession(db: DbApi, settings: UserSettings) {
         allCards.push(card)
       }
     }
+
+    // Fisher-Yates shuffle for random card order
+    for (let i = allCards.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[allCards[i], allCards[j]] = [allCards[j], allCards[i]]
+    }
+
     const sessionCards = allCards.slice(0, settings.sessionSize)
 
     if (sessionCards.length === 0) {
